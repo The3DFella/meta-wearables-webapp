@@ -1,0 +1,14 @@
+{
+  "name": "meta-wearables",
+  "owner": {
+    "name": "Meta Wearables"
+  },
+  "plugins": [
+    {
+      "name": "meta-wearables-webapp",
+      "source": "./plugins/meta-wearables-webapp",
+      "description": "Skills for building Meta Display Glasses webapps",
+      "version": "124.0.0"
+    }
+  ]
+}

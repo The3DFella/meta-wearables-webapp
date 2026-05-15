@@ -1,0 +1,223 @@
+{
+  "version": "2.0.0",
+  "description": "Meta Display Glasses WebApp Template Prompts - D-pad + Enter, API connections, and Sensor data",
+  "inputMode": "dpad-emg",
+  "prompts": [
+    {
+      "id": "timer",
+      "name": "Countdown Timer",
+      "icon": "timer",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a countdown timer webapp with preset duration buttons (1 min, 5 min, 10 min, 15 min, 30 min), large countdown display, start/pause/reset buttons, and visual/audio alert when time is up. All interaction through D-pad navigation and Enter to select."
+    },
+    {
+      "id": "stopwatch",
+      "name": "Stopwatch",
+      "icon": "stopwatch",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a stopwatch webapp with large time display (minutes:seconds:hundredths), start/stop button, lap button to record split times, reset button, and a list of lap times. All controls via D-pad and Enter."
+    },
+    {
+      "id": "calculator",
+      "name": "Calculator",
+      "icon": "calculator",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a calculator webapp with button grid for numbers 0-9, operation buttons (+, -, x, /), equals and clear buttons, large display showing current calculation. Navigate the button grid with D-pad, select with Enter."
+    },
+    {
+      "id": "daily-affirmations",
+      "name": "Daily Affirmations",
+      "icon": "sparkles",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a daily affirmations webapp with 20+ built-in positive affirmations, large text display, next/previous buttons to browse, favorite button to save, and a favorites screen. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "dice-roller",
+      "name": "Dice Roller",
+      "icon": "dice",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a dice roller webapp with preset dice options (D4, D6, D8, D10, D12, D20), animated roll display, roll history, and option to roll multiple dice. Select dice type with D-pad, roll with Enter."
+    },
+    {
+      "id": "decision-maker",
+      "name": "Decision Maker",
+      "icon": "target",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a decision maker webapp with preset choice categories (Yes/No, Coin Flip, Pick 1-10, Direction, What to Eat, Activity), animated spinner/display when deciding, and history of decisions. Navigate categories with D-pad, trigger with Enter."
+    },
+    {
+      "id": "breathing-exercise",
+      "name": "Breathing Exercise",
+      "icon": "wind",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a breathing exercise webapp with preset patterns (Box Breathing, 4-7-8, Calm, Energize), animated circle that expands/contracts with inhale/exhale, phase text (Inhale/Hold/Exhale), session timer, and completion count. Select pattern with D-pad, start with Enter."
+    },
+    {
+      "id": "true-false-quiz",
+      "name": "True or False",
+      "icon": "question",
+      "difficulty": "beginner",
+      "category": "offline",
+      "prompt": "Create a true/false quiz webapp with 30+ built-in statements, large True and False buttons, score counter, streak indicator, results screen, and high score tracking. Simple D-pad left/right to choose True/False, Enter to confirm."
+    },
+    {
+      "id": "flashcards",
+      "name": "Flashcards",
+      "icon": "book",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a flashcard study webapp with 3 built-in decks (World Capitals, Spanish Basics, Math Facts), card front/back display, Enter to flip, D-pad left/right for previous/next, progress indicator (card X of Y), and mark as learned button. All built-in content, no text input."
+    },
+    {
+      "id": "pomodoro",
+      "name": "Pomodoro Timer",
+      "icon": "tomato",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a pomodoro timer webapp with 25-min work / 5-min break cycles (15-min long break every 4 sessions), large countdown display, start/pause button, skip button, session counter, and statistics screen showing completed sessions. All controls via D-pad and Enter."
+    },
+    {
+      "id": "meditation",
+      "name": "Meditation Timer",
+      "icon": "meditation",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a meditation timer webapp with duration preset buttons (5, 10, 15, 20, 30 min), animated breathing guide circle, ambient visual effect, gentle completion indicator, and session history with dates. Select duration with D-pad, start with Enter."
+    },
+    {
+      "id": "workout-tracker",
+      "name": "Workout Tracker",
+      "icon": "muscle",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a workout tracker webapp with preset exercises (Push-ups, Squats, Lunges, Planks, Burpees, Jumping Jacks, Sit-ups, Pull-ups), rep counter with +/- buttons, set counter, 60-second rest timer between sets, and today's workout summary. Navigate exercises with D-pad, adjust with Enter."
+    },
+    {
+      "id": "habit-tracker",
+      "name": "Habit Tracker",
+      "icon": "check",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a habit tracker webapp with 8 preset habits (Exercise, Read, Meditate, Drink Water, Sleep 8hrs, No Junk Food, Study, Walk), toggle completion with Enter, streak counter for each, weekly grid view, and today's progress summary. Navigate habits with D-pad, toggle with Enter."
+    },
+    {
+      "id": "memory-match",
+      "name": "Memory Match",
+      "icon": "cards",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a memory matching game webapp with 4x4 grid of cards (8 pairs), symbols on cards, flip animation on Enter, match detection, move counter, best score tracking, and new game button. Navigate grid with D-pad, flip cards with Enter."
+    },
+    {
+      "id": "reaction-timer",
+      "name": "Reaction Timer",
+      "icon": "lightning",
+      "difficulty": "intermediate",
+      "category": "offline",
+      "prompt": "Create a reaction timer webapp that displays 'Wait...' with random delay (2-5 sec), then shows 'GO!' signal. User presses Enter as fast as possible. Shows reaction time in milliseconds, keeps best time and last 5 attempts. Start with Enter, react with Enter."
+    },
+    {
+      "id": "weather-dashboard",
+      "name": "Weather Dashboard",
+      "icon": "cloud",
+      "difficulty": "intermediate",
+      "category": "api",
+      "apiUrl": "https://api.open-meteo.com/v1/forecast",
+      "prompt": "Create a weather dashboard webapp that fetches REAL weather data from the Open-Meteo API (api.open-meteo.com/v1/forecast). Show current temperature, wind speed, and weather condition with a large icon. Include a 5-day forecast with daily high/low temperatures. Add a location selector with 5 preset cities (New York, London, Tokyo, Sydney, Paris) with their lat/long coordinates. Include a refresh button, loading spinner during API calls, error state with retry button, and last-updated timestamp. Cache data for 10 minutes. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "crypto-tracker",
+      "name": "Crypto Tracker",
+      "icon": "chart",
+      "difficulty": "intermediate",
+      "category": "api",
+      "apiUrl": "https://api.coingecko.com/api/v3",
+      "prompt": "Create a cryptocurrency tracker webapp that fetches REAL prices from CoinGecko API (api.coingecko.com/api/v3/simple/price). Show a list of 8 coins (Bitcoin, Ethereum, Solana, Cardano, Polkadot, Chainlink, Avalanche, Polygon) with current USD price and 24h percentage change. Each coin is a focusable card showing the price in large text and a green/red badge for the change. Add a detail screen on Enter showing more info. Include auto-refresh every 30 seconds, loading states, error handling, and a favorites/watchlist feature with localStorage persistence. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "trivia-live",
+      "name": "Trivia Live",
+      "icon": "brain",
+      "difficulty": "advanced",
+      "category": "api",
+      "apiUrl": "https://opentdb.com/api.php",
+      "prompt": "Create a trivia quiz webapp that fetches REAL questions from Open Trivia DB API (opentdb.com/api.php). Start screen lets user pick category (General, Science, History, Geography, Entertainment, Sports) and difficulty (Easy, Medium, Hard). Each round fetches 10 questions with 4 multiple-choice answers. Show question text, answer buttons, 15-second countdown timer, and score. After answering, show correct/incorrect feedback with the right answer highlighted. Results screen shows final score, correct answers review, and high score tracking. Loading spinner while fetching questions. Navigate answers with D-pad, select with Enter."
+    },
+    {
+      "id": "earthquake-monitor",
+      "name": "Earthquake Monitor",
+      "icon": "wave",
+      "difficulty": "intermediate",
+      "category": "api",
+      "apiUrl": "https://earthquake.usgs.gov/earthquakes/feed/v1.0",
+      "prompt": "Create an earthquake monitor webapp that fetches REAL earthquake data from USGS API (earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson). Show a list of recent earthquakes with magnitude, location, and time. Color-code by severity: green (< 3.0), yellow (3.0-5.0), orange (5.0-7.0), red (7.0+). Detail screen on Enter shows full location, depth, magnitude type, and a link. Add filter tabs (All, Significant, 4.5+, 2.5+). Include auto-refresh every 5 minutes, loading states, and last-updated timestamp. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "space-dashboard",
+      "name": "Space Dashboard",
+      "icon": "rocket",
+      "difficulty": "advanced",
+      "category": "api",
+      "apiUrl": "https://api.open-notify.org",
+      "prompt": "Create a space dashboard webapp that combines REAL data from multiple APIs. Show ISS current position (api.open-notify.org/iss-now.json) with latitude/longitude and auto-refresh every 10 seconds to track movement. Show number of people in space (api.open-notify.org/astros.json) with their names and craft. Include a data card grid showing the position data with large values. Add a history log showing the last 20 ISS position updates as a scrollable list with timestamps. Include loading states, error handling, and connection status indicator. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "joke-machine",
+      "name": "Joke Machine",
+      "icon": "laugh",
+      "difficulty": "beginner",
+      "category": "api",
+      "apiUrl": "https://official-joke-api.appspot.com",
+      "prompt": "Create a joke machine webapp that fetches REAL jokes from the Official Joke API (official-joke-api.appspot.com). Home screen shows a large joke card with the setup text. Press Enter to reveal the punchline with a fun animation. Press 'Next Joke' to fetch another. Include a favorites list saved to localStorage, a favorites screen to browse saved jokes, and a counter showing total jokes viewed. Loading state while fetching. Navigate with D-pad, reveal with Enter."
+    },
+    {
+      "id": "country-explorer",
+      "name": "Country Explorer",
+      "icon": "globe",
+      "difficulty": "intermediate",
+      "category": "api",
+      "apiUrl": "https://restcountries.com/v3.1",
+      "prompt": "Create a country explorer webapp that fetches REAL country data from REST Countries API (restcountries.com/v3.1). Home screen shows region filter tabs (All, Africa, Americas, Asia, Europe, Oceania). Selecting a region fetches countries in that region (/region/NAME). Show a scrollable list of countries with name, flag emoji, and population. Detail screen on Enter shows: official name, capital, population, area, languages, currencies, and region/subregion. Include loading states, search by name capability, and recently viewed countries. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "ip-info",
+      "name": "IP Info",
+      "icon": "network",
+      "difficulty": "beginner",
+      "category": "api",
+      "apiUrl": "https://ipapi.co/json/",
+      "prompt": "Create an IP info webapp that fetches REAL geolocation data from ipapi.co/json/. Show current IP address, city, region, country, timezone, ISP, latitude/longitude, and organization in a card grid layout. Each card shows a label and large value. Include a refresh button and last-updated timestamp. Add a 'Copy IP' action. Cache results for 30 minutes. Loading spinner during fetch, error state with retry. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "compass",
+      "name": "Digital Compass",
+      "icon": "compass",
+      "difficulty": "intermediate",
+      "category": "sensors",
+      "prompt": "Create a digital compass webapp using sensors API. Main screen shows a large compass rose that rotates based on device orientation (using magnetometer and orientation sensors). Display current heading in degrees (0-360) with cardinal direction (N, NE, E, SE, S, SW, W, NW). Show a compass needle that points north. Include a calibration hint if magnetometer accuracy is low. Add a 'lock heading' feature that saves the current heading and shows deviation from it. Start/stop sensor buttons. Demo mode generates smoothly changing random headings. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "level-tool",
+      "name": "Level Tool",
+      "icon": "level",
+      "difficulty": "intermediate",
+      "category": "sensors",
+      "prompt": "Create a spirit level tool webapp using sensors API. Main screen shows a circular level with a bubble that moves based on accelerometer/orientation data. The bubble should be centered when the device is level and drift toward the tilt direction. Display pitch and roll angles in degrees. Change the bubble color: green when level (< 2 degrees), yellow when slightly tilted (2-10 degrees), red when significantly tilted (> 10 degrees). Add a 'calibrate' button to set the current orientation as zero. Include start/stop buttons. Demo mode simulates gentle tilt changes. Navigate with D-pad, select with Enter."
+    },
+    {
+      "id": "motion-tracker",
+      "name": "Motion Tracker",
+      "icon": "activity",
+      "difficulty": "advanced",
+      "category": "sensors",
+      "prompt": "Create a motion tracker webapp using sensors API. Main screen shows a dashboard with: step counter (using accelerometer peak detection), current G-force reading, movement intensity bar (calm/walking/running based on acceleration magnitude), and session duration. Detail screen shows session history with date, step count, and duration for each session. Include start/stop tracking buttons, a reset button, and auto-save sessions to localStorage when stopped. Use 30Hz accelerometer data. Demo mode generates realistic walking-like acceleration patterns. Navigate with D-pad, select with Enter."
+    }
+  ]
+}

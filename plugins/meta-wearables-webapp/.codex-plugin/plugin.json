@@ -1,0 +1,17 @@
+{
+  "name": "meta-wearables-webapp",
+  "version": "125.0.0",
+  "description": "Skills for building Meta Display Glasses webapps",
+  "author": {
+    "name": "Meta Wearables"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Meta Wearables Webapp",
+    "shortDescription": "Build Meta Display Glasses webapps with D-pad UX and sensors",
+    "longDescription": "Skills for creating, testing, and publishing web applications for Meta display glasses.",
+    "developerName": "Meta Wearables",
+    "category": "Coding",
+    "capabilities": ["Read", "Write"]
+  }
+}

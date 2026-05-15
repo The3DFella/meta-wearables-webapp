@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <title>Snake</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Main game screen -->
+    <div id="home" class="screen">
+      <header class="header">
+        <h1>Snake</h1>
+        <span class="header-meta" id="score-display">Score: 0</span>
+      </header>
+      <div class="content game-content">
+        <canvas id="game-canvas" width="560" height="460"></canvas>
+      </div>
+      <nav class="nav-bar">
+        <button class="nav-item focusable primary" data-action="start-game">New Game</button>
+        <button class="nav-item focusable" data-action="view-scores">High Scores</button>
+      </nav>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="game-over" class="overlay hidden">
+      <div class="overlay-content">
+        <div class="game-over-title">Game Over</div>
+        <div class="game-over-score" id="final-score">0</div>
+        <div class="game-over-label">points</div>
+        <div class="game-over-best" id="best-score-label"></div>
+        <button class="nav-item focusable primary overlay-btn" data-action="start-game">Play Again</button>
+        <button class="nav-item focusable overlay-btn" data-action="dismiss-overlay">Back</button>
+      </div>
+    </div>
+
+    <!-- High Scores screen -->
+    <div id="scores" class="screen hidden">
+      <header class="header">
+        <button class="back-btn focusable" data-action="back">&#8592;</button>
+        <h1>High Scores</h1>
+      </header>
+      <div class="content">
+        <div class="list-container" id="scores-list"></div>
+      </div>
+      <nav class="nav-bar">
+        <button class="nav-item focusable danger" data-action="clear-scores">Clear Scores</button>
+      </nav>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
