@@ -1,0 +1,10 @@
+{
+  "name": "mrbd-map",
+  "private": true,
+  "scripts": {
+    "dev": "vite --host --open"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

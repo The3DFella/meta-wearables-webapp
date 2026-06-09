@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <meta name="description" content="OpenStreetMap location viewer for Meta Ray-Ban Display Glasses.">
+  <meta name="mrbd-web-app-capable" content="yes">
+  <title>My Map</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="map-screen" class="screen">
+      <header class="header">
+        <h1>My Map</h1>
+        <span class="header-meta" id="gps-status">Locating…</span>
+      </header>
+      <div class="content map-content">
+        <div class="map-wrapper">
+          <canvas id="map-canvas" width="568" height="368" class="focusable" tabindex="0" data-action="map-focus"></canvas>
+          <div class="map-crosshair" aria-hidden="true">+</div>
+          <div class="map-attribution">© OpenStreetMap</div>
+        </div>
+        <div class="coords-bar" id="coords-bar">—</div>
+      </div>
+      <nav class="nav-bar">
+        <button class="nav-item focusable" data-action="zoom-out">−</button>
+        <button class="nav-item focusable primary" data-action="recenter">Center</button>
+        <button class="nav-item focusable" data-action="zoom-in">+</button>
+        <button class="nav-item focusable" data-action="details">Info</button>
+      </nav>
+    </div>
+
+    <div id="details-screen" class="screen hidden">
+      <header class="header">
+        <button class="back-btn focusable" data-action="back">&#8592;</button>
+        <h1>Location</h1>
+      </header>
+      <div class="content">
+        <div class="card">
+          <div class="card-subtitle">Place</div>
+          <div class="card-title" id="place-name">—</div>
+        </div>
+        <div class="data-grid">
+          <div class="card">
+            <div class="card-subtitle">Latitude</div>
+            <div class="card-value small" id="detail-lat">—</div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Longitude</div>
+            <div class="card-value small" id="detail-lon">—</div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Accuracy</div>
+            <div class="card-value small" id="detail-accuracy">—</div>
+          </div>
+          <div class="card">
+            <div class="card-subtitle">Heading</div>
+            <div class="card-value small" id="detail-heading">—</div>
+          </div>
+        </div>
+        <button class="nav-item focusable primary refresh-btn" data-action="refresh-location">Refresh</button>
+      </div>
+    </div>
+
+    <div id="error-screen" class="screen hidden">
+      <header class="header">
+        <h1>My Map</h1>
+      </header>
+      <div class="content">
+        <div class="error-container">
+          <div class="error-icon">📍</div>
+          <div class="error-message" id="error-message">Location unavailable</div>
+        </div>
+        <button class="nav-item focusable primary refresh-btn" data-action="retry-location">Try Again</button>
+      </div>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
