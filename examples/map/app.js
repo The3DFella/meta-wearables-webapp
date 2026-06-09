@@ -430,10 +430,23 @@
     });
   }
 
+  function resizeCanvas() {
+    var wrapper = canvas.parentElement;
+    var rect = wrapper.getBoundingClientRect();
+    var w = Math.floor(rect.width);
+    var h = Math.floor(rect.height);
+    if (w > 0 && h > 0 && (canvas.width !== w || canvas.height !== h)) {
+      canvas.width = w;
+      canvas.height = h;
+      scheduleRender();
+    }
+  }
+
   function init() {
     collectScreens();
     canvas = document.getElementById('map-canvas');
     ctx = canvas.getContext('2d');
+    resizeCanvas();
     gpsStatus = document.getElementById('gps-status');
     coordsBar = document.getElementById('coords-bar');
     placeNameEl = document.getElementById('place-name');
@@ -448,6 +461,7 @@
     startGeolocation();
 
     setTimeout(function () {
+      resizeCanvas();
       focusFirst(screens['map-screen']);
     }, 100);
   }
