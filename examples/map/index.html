@@ -52,24 +52,12 @@
         <h1>Destination</h1>
       </header>
       <div class="content type-content">
-        <div class="type-query" id="type-query" aria-live="polite"></div>
-        <div class="type-status" id="type-status">Spell out a place, then press Go</div>
-        <div class="keyboard" id="keyboard"></div>
-      </div>
-    </div>
-
-    <div id="voice-screen" class="screen hidden">
-      <header class="header">
-        <button class="back-btn focusable" data-action="back">&#8592;</button>
-        <h1>Where to?</h1>
-      </header>
-      <div class="content voice-content">
-        <div class="voice-orb" id="voice-orb">🎤</div>
-        <div class="voice-status" id="voice-status">Tap to speak</div>
-        <div class="voice-transcript" id="voice-transcript"></div>
-        <div class="nav-bar voice-nav">
-          <button class="nav-item focusable primary" data-action="voice-listen" id="voice-listen-btn">Speak</button>
-          <button class="nav-item focusable" data-action="type">Type</button>
+        <input id="dest-input" class="dest-input focusable" type="text"
+               inputmode="search" autocomplete="off" autocapitalize="words"
+               autocorrect="off" spellcheck="false" placeholder="Search a place…">
+        <div class="type-status" id="type-status">Type a place, then Search</div>
+        <div class="nav-bar type-nav">
+          <button class="nav-item focusable primary" data-action="search-dest">Search</button>
           <button class="nav-item focusable" data-action="back">Cancel</button>
         </div>
       </div>
@@ -89,7 +77,7 @@
         <div class="steps-list" id="steps-list"></div>
         <div class="nav-bar route-nav">
           <button class="nav-item focusable primary" data-action="start-route">Start</button>
-          <button class="nav-item focusable" data-action="voice">Change</button>
+          <button class="nav-item focusable" data-action="type">Change</button>
         </div>
       </div>
     </div>

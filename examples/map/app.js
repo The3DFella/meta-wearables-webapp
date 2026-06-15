@@ -5,6 +5,9 @@
   var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
   var NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+  // Photon (komoot) — OSM-based geocoder with permissive CORS; more reliable
+  // than Nominatim from the glasses browser, which often gets blocked/limited.
+  var PHOTON_URL = 'https://photon.komoot.io/api/';
   // FOSSGIS-hosted OSRM foot profile (free, no key) — same router used by openstreetmap.org.
   var OSRM_FOOT_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
   var MIN_ZOOM = 12;
@@ -43,27 +46,14 @@
     lastRerouteAt: 0,
   };
 
-  var recognition = null;
-  var listening = false;
-
   var screens = {};
   var canvas, ctx;
   var gpsStatus, coordsBar, placeNameEl;
   var detailLat, detailLon, detailAccuracy, detailHeading, errorMessage;
-  var voiceOrb, voiceStatus, voiceTranscript;
   var navBanner, navBannerIcon, navBannerInstruction, navBannerDistance;
   var routeSummary, routeDestName, stepsList;
-  var keyboardEl, typeQueryEl, typeStatus;
-
-  var KEY_ROWS = [
-    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
-    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
-    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
-    ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
-    ['SPACE', 'DEL', 'MIC', 'GO'],
-  ];
-  var typedQuery = '';
-  var kbFocus = { r: 1, c: 0 };
+  var destInput, typeStatus;
+  var lastFocused = null;
 
   function collectScreens() {
     document.querySelectorAll('.screen').forEach(function (s) {
@@ -98,6 +88,28 @@
   function focusFirst(container) {
     var el = container.querySelector('.focusable:not([disabled]):not(.hidden)');
     if (el) el.focus();
+  }
+
+  function isVisible(el) {
+    return !!(el && el.offsetParent !== null && !el.classList.contains('hidden'));
+  }
+
+  // Returns the element a tap should act on, recovering focus if it was lost
+  // (e.g. stranded on <body> after a re-render) so a single tap always works.
+  function activeFocusable() {
+    var ae = document.activeElement;
+    if (ae && ae.classList && ae.classList.contains('focusable') && isVisible(ae)) {
+      return ae;
+    }
+    var container = screens[state.currentScreen];
+    if (!container) return null;
+    if (lastFocused && container.contains(lastFocused) && isVisible(lastFocused)) {
+      lastFocused.focus();
+      return lastFocused;
+    }
+    var first = container.querySelector('.focusable:not([disabled]):not(.hidden)');
+    if (first) first.focus();
+    return first;
   }
 
   function moveFocus(direction) {
@@ -432,121 +444,7 @@
     return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
   }
 
-  /* ---------- On-screen keyboard (D-pad destination entry) ---------- */
-
-  function keyLabel(k) {
-    if (k === 'SPACE') return 'space';
-    if (k === 'DEL') return '\u232B';
-    if (k === 'MIC') return '\uD83C\uDFA4';
-    if (k === 'GO') return 'Go';
-    return k;
-  }
-
-  function buildKeyboard() {
-    if (!keyboardEl || keyboardEl.childElementCount) return;
-    KEY_ROWS.forEach(function (row, r) {
-      var rowEl = document.createElement('div');
-      rowEl.className = 'kb-row';
-      row.forEach(function (k, c) {
-        var b = document.createElement('button');
-        b.className = 'kb-key focusable';
-        if (k === 'GO') b.classList.add('primary');
-        if (k === 'SPACE') b.classList.add('kb-space');
-        b.dataset.key = k;
-        b.dataset.r = r;
-        b.dataset.c = c;
-        b.textContent = keyLabel(k);
-        rowEl.appendChild(b);
-      });
-      keyboardEl.appendChild(rowEl);
-    });
-    keyboardEl.addEventListener('click', function (e) {
-      var keyEl = e.target.closest('.kb-key');
-      if (keyEl) handleKey(keyEl.dataset.key);
-    });
-  }
-
-  function focusKey(r, c) {
-    r = Math.max(0, Math.min(KEY_ROWS.length - 1, r));
-    c = Math.max(0, Math.min(KEY_ROWS[r].length - 1, c));
-    kbFocus = { r: r, c: c };
-    var el = keyboardEl.querySelector('[data-r="' + r + '"][data-c="' + c + '"]');
-    if (el) el.focus();
-  }
-
-  function keyboardNav(dir) {
-    var active = document.activeElement;
-    if (active && active.classList.contains('kb-key')) {
-      kbFocus = { r: parseInt(active.dataset.r, 10), c: parseInt(active.dataset.c, 10) };
-    }
-    var r = kbFocus.r, c = kbFocus.c;
-    if (dir === 'up') r--;
-    else if (dir === 'down') r++;
-    else if (dir === 'left') c--;
-    else if (dir === 'right') c++;
-
-    if (r < 0) r = KEY_ROWS.length - 1;
-    if (r > KEY_ROWS.length - 1) r = 0;
-    var len = KEY_ROWS[r].length;
-    if (c < 0) c = len - 1;
-    if (c > len - 1) c = 0;
-    focusKey(r, c);
-  }
-
-  function renderTypedQuery() {
-    if (typeQueryEl) typeQueryEl.textContent = typedQuery;
-  }
-
-  function handleKey(k) {
-    switch (k) {
-      case 'GO':
-        submitTyped();
-        return;
-      case 'DEL':
-        typedQuery = typedQuery.slice(0, -1);
-        break;
-      case 'SPACE':
-        if (typedQuery && typedQuery.slice(-1) !== ' ') typedQuery += ' ';
-        break;
-      case 'MIC':
-        navigateTo('voice-screen');
-        startListening();
-        return;
-      default:
-        typedQuery += k;
-    }
-    renderTypedQuery();
-  }
-
-  function submitTyped() {
-    var q = typedQuery.trim();
-    if (!q) {
-      if (typeStatus) typeStatus.textContent = 'Type a place first';
-      return;
-    }
-    if (typeStatus) typeStatus.textContent = 'Searching for \u201C' + q + '\u201D\u2026';
-    findDestination(q);
-  }
-
-  function openTypeScreen() {
-    buildKeyboard();
-    typedQuery = '';
-    renderTypedQuery();
-    if (typeStatus) typeStatus.textContent = 'Spell out a place, then press Go';
-    navigateTo('type-screen');
-    focusKey(1, 0);
-  }
-
-  function setSearchStatus(msg) {
-    if (voiceStatus) voiceStatus.textContent = msg;
-    if (typeStatus) typeStatus.textContent = msg;
-  }
-
-  /* ---------- Voice recognition ---------- */
-
-  function speechSupported() {
-    return ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
-  }
+  /* ---------- Spoken guidance (text-to-speech output) ---------- */
 
   function speak(text) {
     if (!('speechSynthesis' in window)) return;
@@ -559,163 +457,112 @@
     } catch (e) { /* non-critical */ }
   }
 
-  function setVoiceState(status, transcript, isListening) {
-    if (voiceStatus) voiceStatus.textContent = status;
-    if (transcript !== undefined && voiceTranscript) voiceTranscript.textContent = transcript;
-    if (voiceOrb) voiceOrb.classList.toggle('listening', !!isListening);
-    listening = !!isListening;
+  /* ---------- Destination search (text input) ---------- */
+
+  function setSearchStatus(msg) {
+    if (typeStatus) typeStatus.textContent = msg;
   }
 
-  var micReady = false;
-  var voiceRetried = false;
-  var gotResult = false;
-
-  // Pre-acquire microphone permission. SpeechRecognition only needs the
-  // permission prompt to happen inside a user gesture; once granted it can be
-  // (re)started freely. WebViews (like the glasses browser) are much more
-  // reliable when the mic is granted via getUserMedia first.
-  function ensureMic() {
-    if (micReady) return Promise.resolve(true);
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      // No getUserMedia — let SpeechRecognition try to handle permission itself.
-      return Promise.resolve(true);
+  function openSearchScreen() {
+    navigateTo('type-screen');
+    if (destInput) {
+      destInput.value = '';
+      setSearchStatus('Type a place, then Search');
+      // Focus the field so the wrist-band keyboard opens right away.
+      setTimeout(function () { destInput.focus(); }, 60);
     }
-    return navigator.mediaDevices.getUserMedia({ audio: true })
-      .then(function (stream) {
-        stream.getTracks().forEach(function (t) { t.stop(); });
-        micReady = true;
-        return true;
-      })
-      .catch(function (e) {
-        var name = (e && e.name) ? e.name : 'error';
-        if (name === 'NotAllowedError' || name === 'SecurityError') {
-          setVoiceState('Microphone permission denied', '', false);
-        } else if (name === 'NotFoundError') {
-          setVoiceState('No microphone found', '', false);
-        } else {
-          setVoiceState('Mic unavailable (' + name + ')', '', false);
-        }
-        return false;
-      });
   }
 
-  function startListening() {
-    if (!speechSupported()) {
-      setVoiceState('Voice not supported on this device', '', false);
+  function submitSearch() {
+    var q = destInput ? destInput.value.trim() : '';
+    if (!q) {
+      setSearchStatus('Type a place first');
+      if (destInput) destInput.focus();
       return;
     }
-    voiceRetried = false;
-    setVoiceState('Preparing mic…', '', false);
-    ensureMic().then(function (ok) {
-      if (ok) beginRecognition();
-    });
-  }
-
-  function beginRecognition() {
-    var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (recognition) {
-      try { recognition.abort(); } catch (e) {}
-    }
-    gotResult = false;
-    recognition = new Ctor();
-    recognition.lang = 'en-US';
-    recognition.interimResults = true;
-    recognition.maxAlternatives = 1;
-    recognition.continuous = false;
-
-    recognition.onstart = function () {
-      setVoiceState('Listening…', '', true);
-    };
-    recognition.onresult = function (e) {
-      gotResult = true;
-      var transcript = '';
-      for (var i = 0; i < e.results.length; i++) {
-        transcript += e.results[i][0].transcript;
-      }
-      transcript = transcript.trim();
-      if (voiceTranscript) voiceTranscript.textContent = transcript;
-      if (e.results[e.results.length - 1].isFinal && transcript) {
-        setVoiceState('Searching…', transcript, false);
-        findDestination(transcript);
-      }
-    };
-    recognition.onerror = function (ev) {
-      var err = ev.error || 'unknown';
-      // Transient errors: retry once automatically.
-      if ((err === 'network' || err === 'no-speech' || err === 'aborted') && !voiceRetried) {
-        voiceRetried = true;
-        setVoiceState('Reconnecting…', '', false);
-        setTimeout(function () {
-          try { recognition.start(); } catch (e) { beginRecognition(); }
-        }, 600);
-        return;
-      }
-      var msg;
-      switch (err) {
-        case 'not-allowed':
-        case 'service-not-allowed':
-          msg = 'Microphone permission denied'; micReady = false; break;
-        case 'no-speech':
-          msg = 'No speech detected — tap Speak'; break;
-        case 'network':
-          msg = 'Speech service offline — check connection'; break;
-        case 'audio-capture':
-          msg = 'No microphone found'; break;
-        default:
-          msg = 'Voice error (' + err + ') — tap Speak';
-      }
-      setVoiceState(msg, '', false);
-    };
-    recognition.onend = function () {
-      // If it ended with no result and not mid-retry, reset to idle.
-      if (listening && !gotResult && !voiceRetried) {
-        setVoiceState('Tap Speak to try again', undefined, false);
-      }
-    };
-
-    try {
-      recognition.start();
-    } catch (e) {
-      // start() throws if called while already running — restart cleanly.
-      setTimeout(beginRecognition, 300);
-    }
+    setSearchStatus('Searching for \u201C' + q + '\u201D\u2026');
+    findDestination(q);
   }
 
   /* ---------- Geocoding (destination lookup) ---------- */
 
-  function findDestination(query) {
-    var url = NOMINATIM_SEARCH_URL +
-      '?format=json&limit=1&q=' + encodeURIComponent(query);
-    // Bias results toward the user's vicinity when we know where they are.
+  function biasParams() {
     if (state.userLat !== null && state.userLon !== null) {
-      var d = 0.5;
-      url += '&viewbox=' +
-        (state.userLon - d) + ',' + (state.userLat + d) + ',' +
-        (state.userLon + d) + ',' + (state.userLat - d);
+      return '&lat=' + state.userLat + '&lon=' + state.userLon;
     }
+    return '';
+  }
 
-    fetch(url, { headers: { 'Accept': 'application/json' } })
+  function applyDestination(place) {
+    state.destination = place;
+    setSearchStatus('Planning route\u2026');
+    fetchRoute();
+  }
+
+  function findDestination(query) {
+    setSearchStatus('Searching\u2026');
+    geocodePhoton(query)
+      .then(function (place) {
+        if (place) { applyDestination(place); return; }
+        return geocodeNominatim(query).then(function (p2) {
+          if (p2) applyDestination(p2);
+          else notFound(query);
+        });
+      })
+      .catch(function () {
+        // Photon failed (network/CORS) — fall back to Nominatim.
+        geocodeNominatim(query)
+          .then(function (p2) {
+            if (p2) applyDestination(p2);
+            else notFound(query);
+          })
+          .catch(function () {
+            setSearchStatus('Search failed — check connection');
+          });
+      });
+  }
+
+  function notFound(query) {
+    setSearchStatus('Couldn\u2019t find \u201C' + query + '\u201D');
+    speak('Sorry, I could not find ' + query);
+  }
+
+  function geocodePhoton(query) {
+    var url = PHOTON_URL + '?limit=1&q=' + encodeURIComponent(query) + biasParams();
+    return fetch(url).then(function (res) {
+      if (!res.ok) throw new Error('photon ' + res.status);
+      return res.json();
+    }).then(function (data) {
+      if (!data || !data.features || !data.features.length) return null;
+      var f = data.features[0];
+      var c = f.geometry && f.geometry.coordinates;
+      if (!c) return null;
+      return { lat: c[1], lon: c[0], name: photonName(f.properties) };
+    });
+  }
+
+  function photonName(p) {
+    if (!p) return 'Destination';
+    var parts = [];
+    if (p.name) parts.push(p.name);
+    else if (p.street) parts.push(p.street + (p.housenumber ? ' ' + p.housenumber : ''));
+    if (p.city) parts.push(p.city);
+    else if (p.state) parts.push(p.state);
+    if (p.country) parts.push(p.country);
+    return parts.join(', ') || 'Destination';
+  }
+
+  function geocodeNominatim(query) {
+    var url = NOMINATIM_SEARCH_URL + '?format=json&limit=1&q=' + encodeURIComponent(query);
+    return fetch(url, { headers: { 'Accept': 'application/json' } })
       .then(function (res) {
-        if (!res.ok) throw new Error('Search failed');
+        if (!res.ok) throw new Error('nominatim ' + res.status);
         return res.json();
       })
       .then(function (results) {
-        if (!results || results.length === 0) {
-          setSearchStatus('Couldn\u2019t find \u201C' + query + '\u201D');
-          speak('Sorry, I could not find ' + query);
-          return;
-        }
+        if (!results || !results.length) return null;
         var r = results[0];
-        state.destination = {
-          lat: parseFloat(r.lat),
-          lon: parseFloat(r.lon),
-          name: r.display_name || query,
-        };
-        setSearchStatus('Planning route\u2026');
-        fetchRoute();
-      })
-      .catch(function () {
-        setSearchStatus('Search failed — try again');
+        return { lat: parseFloat(r.lat), lon: parseFloat(r.lon), name: r.display_name || query };
       });
   }
 
@@ -989,16 +836,10 @@
         navigateTo('details-screen');
         break;
       case 'type':
-        openTypeScreen();
+        openSearchScreen();
         break;
-      case 'voice':
-        navigateTo('voice-screen');
-        // Start within the same user-gesture call stack (required for the mic
-        // permission prompt on the glasses browser / WebViews).
-        startListening();
-        break;
-      case 'voice-listen':
-        startListening();
+      case 'search-dest':
+        submitSearch();
         break;
       case 'start-route':
         startNavigation();
@@ -1031,6 +872,29 @@
       }
     });
 
+    // Remember the last real focus target so we can restore it if focus is lost.
+    document.addEventListener('focusin', function (e) {
+      if (e.target && e.target.classList && e.target.classList.contains('focusable')) {
+        lastFocused = e.target;
+      }
+    });
+
+    // If focus ends up stranded on <body> (after a re-render or hidden element),
+    // pull it back to a real control so the next tap isn't wasted.
+    document.addEventListener('focusout', function () {
+      setTimeout(function () {
+        var ae = document.activeElement;
+        if (ae && ae.classList && ae.classList.contains('focusable')) return;
+        var container = screens[state.currentScreen];
+        if (!container) return;
+        if (lastFocused && container.contains(lastFocused) && isVisible(lastFocused)) {
+          lastFocused.focus();
+        } else {
+          focusFirst(container);
+        }
+      }, 0);
+    });
+
     canvas.addEventListener('focus', function () {
       state.mapFocused = true;
     });
@@ -1057,20 +921,18 @@
         }
       }
 
-      // The keyboard uses 2D grid navigation instead of linear focus order.
-      if (state.currentScreen === 'type-screen' &&
-          document.activeElement &&
-          document.activeElement.classList.contains('kb-key')) {
-        switch (e.key) {
-          case 'ArrowUp':
-            keyboardNav('up'); e.preventDefault(); return;
-          case 'ArrowDown':
-            keyboardNav('down'); e.preventDefault(); return;
-          case 'ArrowLeft':
-            keyboardNav('left'); e.preventDefault(); return;
-          case 'ArrowRight':
-            keyboardNav('right'); e.preventDefault(); return;
+      // While typing in the search field, let the wrist-band keyboard handle
+      // text/arrows natively; only intercept Enter (search) and Escape (back).
+      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
+        if (e.key === 'Enter') {
+          submitSearch();
+          e.preventDefault();
+        } else if (e.key === 'Escape') {
+          document.activeElement.blur();
+          navigateBack();
+          e.preventDefault();
         }
+        return;
       }
 
       switch (e.key) {
@@ -1091,12 +953,12 @@
           e.preventDefault();
           break;
         case 'Enter':
-          // Enter on the focused map canvas toggles pan mode.
-          if (document.activeElement === canvas) {
+          var target = activeFocusable();
+          if (target === canvas) {
+            // Enter on the focused map canvas toggles pan mode.
             setPanMode(true);
-          } else if (document.activeElement &&
-              document.activeElement.classList.contains('focusable')) {
-            document.activeElement.click();
+          } else if (target) {
+            target.click();
           }
           e.preventDefault();
           break;
@@ -1138,9 +1000,6 @@
     detailAccuracy = document.getElementById('detail-accuracy');
     detailHeading = document.getElementById('detail-heading');
     errorMessage = document.getElementById('error-message');
-    voiceOrb = document.getElementById('voice-orb');
-    voiceStatus = document.getElementById('voice-status');
-    voiceTranscript = document.getElementById('voice-transcript');
     navBanner = document.getElementById('nav-banner');
     navBannerIcon = document.getElementById('nav-banner-icon');
     navBannerInstruction = document.getElementById('nav-banner-instruction');
@@ -1148,8 +1007,7 @@
     routeSummary = document.getElementById('route-summary');
     routeDestName = document.getElementById('route-dest-name');
     stepsList = document.getElementById('steps-list');
-    keyboardEl = document.getElementById('keyboard');
-    typeQueryEl = document.getElementById('type-query');
+    destInput = document.getElementById('dest-input');
     typeStatus = document.getElementById('type-status');
 
     setupEvents();
