@@ -445,15 +445,57 @@
     listening = !!isListening;
   }
 
+  var micReady = false;
+  var voiceRetried = false;
+  var gotResult = false;
+
+  // Pre-acquire microphone permission. SpeechRecognition only needs the
+  // permission prompt to happen inside a user gesture; once granted it can be
+  // (re)started freely. WebViews (like the glasses browser) are much more
+  // reliable when the mic is granted via getUserMedia first.
+  function ensureMic() {
+    if (micReady) return Promise.resolve(true);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      // No getUserMedia — let SpeechRecognition try to handle permission itself.
+      return Promise.resolve(true);
+    }
+    return navigator.mediaDevices.getUserMedia({ audio: true })
+      .then(function (stream) {
+        stream.getTracks().forEach(function (t) { t.stop(); });
+        micReady = true;
+        return true;
+      })
+      .catch(function (e) {
+        var name = (e && e.name) ? e.name : 'error';
+        if (name === 'NotAllowedError' || name === 'SecurityError') {
+          setVoiceState('Microphone permission denied', '', false);
+        } else if (name === 'NotFoundError') {
+          setVoiceState('No microphone found', '', false);
+        } else {
+          setVoiceState('Mic unavailable (' + name + ')', '', false);
+        }
+        return false;
+      });
+  }
+
   function startListening() {
     if (!speechSupported()) {
       setVoiceState('Voice not supported on this device', '', false);
       return;
     }
+    voiceRetried = false;
+    setVoiceState('Preparing mic…', '', false);
+    ensureMic().then(function (ok) {
+      if (ok) beginRecognition();
+    });
+  }
+
+  function beginRecognition() {
     var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (recognition) {
       try { recognition.abort(); } catch (e) {}
     }
+    gotResult = false;
     recognition = new Ctor();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
@@ -464,6 +506,7 @@
       setVoiceState('Listening…', '', true);
     };
     recognition.onresult = function (e) {
+      gotResult = true;
       var transcript = '';
       for (var i = 0; i < e.results.length; i++) {
         transcript += e.results[i][0].transcript;
@@ -476,19 +519,44 @@
       }
     };
     recognition.onerror = function (ev) {
-      var msg = ev.error === 'not-allowed'
-        ? 'Microphone permission denied'
-        : (ev.error === 'no-speech' ? 'No speech detected — try again' : 'Voice error — try again');
+      var err = ev.error || 'unknown';
+      // Transient errors: retry once automatically.
+      if ((err === 'network' || err === 'no-speech' || err === 'aborted') && !voiceRetried) {
+        voiceRetried = true;
+        setVoiceState('Reconnecting…', '', false);
+        setTimeout(function () {
+          try { recognition.start(); } catch (e) { beginRecognition(); }
+        }, 600);
+        return;
+      }
+      var msg;
+      switch (err) {
+        case 'not-allowed':
+        case 'service-not-allowed':
+          msg = 'Microphone permission denied'; micReady = false; break;
+        case 'no-speech':
+          msg = 'No speech detected — tap Speak'; break;
+        case 'network':
+          msg = 'Speech service offline — check connection'; break;
+        case 'audio-capture':
+          msg = 'No microphone found'; break;
+        default:
+          msg = 'Voice error (' + err + ') — tap Speak';
+      }
       setVoiceState(msg, '', false);
     };
     recognition.onend = function () {
-      if (listening) setVoiceState('Tap to speak', undefined, false);
+      // If it ended with no result and not mid-retry, reset to idle.
+      if (listening && !gotResult && !voiceRetried) {
+        setVoiceState('Tap Speak to try again', undefined, false);
+      }
     };
 
     try {
       recognition.start();
     } catch (e) {
-      setVoiceState('Could not start microphone', '', false);
+      // start() throws if called while already running — restart cleanly.
+      setTimeout(beginRecognition, 300);
     }
   }
 
@@ -801,8 +869,9 @@
         break;
       case 'voice':
         navigateTo('voice-screen');
-        setVoiceState('Tap to speak', '', false);
-        setTimeout(startListening, 250);
+        // Start within the same user-gesture call stack (required for the mic
+        // permission prompt on the glasses browser / WebViews).
+        startListening();
         break;
       case 'voice-listen':
         startListening();
