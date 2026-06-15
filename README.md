@@ -12,8 +12,11 @@ The app lives in [`examples/map`](examples/map).
 - Custom canvas renderer for OpenStreetMap raster tiles (no map library)
 - Reverse geocoding via [Nominatim](https://nominatim.org/)
 - **Walking navigation**: destination entry → route → live turn-by-turn
-  - On-screen **D-pad keyboard** for destination entry (glasses-compatible)
-  - Voice entry via the Web Speech API (desktop browsers only — see below)
+  - On-screen **D-pad keyboard** for destination entry — the Neural Band /
+    captouch only emit arrow keys + Enter + Escape (webapps get no text input),
+    so a focusable letter grid is used to spell out the place
+  - **Recent destinations** saved locally (localStorage) for one-tap reuse
+  - Geocoding via [Photon](https://photon.komoot.io/) with Nominatim fallback
   - Walking route from the FOSSGIS-hosted OSRM `foot` router (free, no key)
   - On-map banner with the next maneuver + distance, auto-advancing as you walk
   - Spoken step instructions via `speechSynthesis`; automatic reroute when off-route
@@ -47,9 +50,9 @@ The UI is built for the glasses' display and input model:
   white/high-contrast foreground
 - **D-pad navigation only** (Neural Band / captouch → arrow keys, Enter, Escape);
   no cursor or touch. All interactive elements are `.focusable`
-- **No microphone or native text input** for webapps — this is why destination
-  entry uses an on-screen keyboard on the glasses. Voice input only works when
-  testing in a desktop browser.
+- **No microphone or text input** for webapps — the Neural Band only sends
+  arrow keys, Enter, and Escape, so destination entry uses an on-screen keyboard
+  navigated with the D-pad.
 
 ## Deploy
 

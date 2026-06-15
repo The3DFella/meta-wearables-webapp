@@ -52,14 +52,10 @@
         <h1>Destination</h1>
       </header>
       <div class="content type-content">
-        <input id="dest-input" class="dest-input focusable" type="text"
-               inputmode="search" autocomplete="off" autocapitalize="words"
-               autocorrect="off" spellcheck="false" placeholder="Search a place…">
-        <div class="type-status" id="type-status">Type a place, then Search</div>
-        <div class="nav-bar type-nav">
-          <button class="nav-item focusable primary" data-action="search-dest">Search</button>
-          <button class="nav-item focusable" data-action="back">Cancel</button>
-        </div>
+        <div class="type-query" id="type-query" aria-live="polite"></div>
+        <div class="type-status" id="type-status">Move with the band, tap to pick a letter, then Go</div>
+        <div class="recent-list hidden" id="recent-list"></div>
+        <div class="keyboard" id="keyboard"></div>
       </div>
     </div>
 

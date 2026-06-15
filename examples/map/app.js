@@ -52,8 +52,21 @@
   var detailLat, detailLon, detailAccuracy, detailHeading, errorMessage;
   var navBanner, navBannerIcon, navBannerInstruction, navBannerDistance;
   var routeSummary, routeDestName, stepsList;
-  var destInput, typeStatus;
+  var keyboardEl, typeQueryEl, typeStatus, recentListEl;
   var lastFocused = null;
+  var RECENTS_KEY = 'mdg_map_recents';
+
+  // The Neural Band / captouch only emit arrow keys + Enter + Escape — webapps
+  // get NO text input — so destinations are entered via this on-screen keyboard.
+  var KEY_ROWS = [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+    ['SPACE', 'DEL', 'GO'],
+  ];
+  var typedQuery = '';
+  var kbFocus = { r: 1, c: 0 };
 
   function collectScreens() {
     document.querySelectorAll('.screen').forEach(function (s) {
@@ -457,31 +470,178 @@
     } catch (e) { /* non-critical */ }
   }
 
-  /* ---------- Destination search (text input) ---------- */
+  /* ---------- Destination entry (on-screen D-pad keyboard) ---------- */
 
   function setSearchStatus(msg) {
     if (typeStatus) typeStatus.textContent = msg;
   }
 
-  function openSearchScreen() {
-    navigateTo('type-screen');
-    if (destInput) {
-      destInput.value = '';
-      setSearchStatus('Type a place, then Search');
-      // Focus the field so the wrist-band keyboard opens right away.
-      setTimeout(function () { destInput.focus(); }, 60);
+  function keyLabel(k) {
+    if (k === 'SPACE') return 'space';
+    if (k === 'DEL') return '\u232B';
+    if (k === 'GO') return 'Go';
+    return k;
+  }
+
+  function buildKeyboard() {
+    if (!keyboardEl || keyboardEl.childElementCount) return;
+    KEY_ROWS.forEach(function (row, r) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'kb-row';
+      row.forEach(function (k, c) {
+        var b = document.createElement('button');
+        b.className = 'kb-key focusable';
+        if (k === 'GO') b.classList.add('primary');
+        if (k === 'SPACE') b.classList.add('kb-space');
+        b.dataset.key = k;
+        b.dataset.r = r;
+        b.dataset.c = c;
+        b.textContent = keyLabel(k);
+        rowEl.appendChild(b);
+      });
+      keyboardEl.appendChild(rowEl);
+    });
+    keyboardEl.addEventListener('click', function (e) {
+      var keyEl = e.target.closest('.kb-key');
+      if (keyEl) handleKey(keyEl.dataset.key);
+    });
+  }
+
+  function focusKey(r, c) {
+    r = Math.max(0, Math.min(KEY_ROWS.length - 1, r));
+    c = Math.max(0, Math.min(KEY_ROWS[r].length - 1, c));
+    kbFocus = { r: r, c: c };
+    var el = keyboardEl.querySelector('[data-r="' + r + '"][data-c="' + c + '"]');
+    if (el) el.focus();
+  }
+
+  function keyboardNav(dir) {
+    var active = document.activeElement;
+    if (active && active.classList.contains('kb-key')) {
+      kbFocus = { r: parseInt(active.dataset.r, 10), c: parseInt(active.dataset.c, 10) };
     }
+    var r = kbFocus.r, c = kbFocus.c;
+    if (dir === 'up') r--;
+    else if (dir === 'down') r++;
+    else if (dir === 'left') c--;
+    else if (dir === 'right') c++;
+
+    if (r < 0) r = KEY_ROWS.length - 1;
+    if (r > KEY_ROWS.length - 1) r = 0;
+    var len = KEY_ROWS[r].length;
+    if (c < 0) c = len - 1;
+    if (c > len - 1) c = 0;
+    focusKey(r, c);
+  }
+
+  function renderTypedQuery() {
+    if (typeQueryEl) typeQueryEl.textContent = typedQuery;
+  }
+
+  function handleKey(k) {
+    switch (k) {
+      case 'GO':
+        submitSearch();
+        return;
+      case 'DEL':
+        typedQuery = typedQuery.slice(0, -1);
+        break;
+      case 'SPACE':
+        if (typedQuery && typedQuery.slice(-1) !== ' ') typedQuery += ' ';
+        break;
+      default:
+        typedQuery += k;
+    }
+    renderTypedQuery();
+  }
+
+  function openSearchScreen() {
+    buildKeyboard();
+    typedQuery = '';
+    renderTypedQuery();
+    renderRecents();
+    setSearchStatus('Move with the band, tap to pick a letter, then Go');
+    navigateTo('type-screen');
+    var recentFirst = recentListEl && recentListEl.querySelector('.recent-chip');
+    if (recentFirst) recentFirst.focus();
+    else focusKey(1, 0);
   }
 
   function submitSearch() {
-    var q = destInput ? destInput.value.trim() : '';
+    var q = typedQuery.trim();
     if (!q) {
       setSearchStatus('Type a place first');
-      if (destInput) destInput.focus();
       return;
     }
     setSearchStatus('Searching for \u201C' + q + '\u201D\u2026');
     findDestination(q);
+  }
+
+  /* ---------- Recent destinations (saved locally for one-tap reuse) ---------- */
+
+  function loadRecents() {
+    try {
+      var raw = localStorage.getItem(RECENTS_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveRecent(place) {
+    if (!place || place.lat == null || place.lon == null) return;
+    try {
+      var list = loadRecents().filter(function (p) {
+        return !(Math.abs(p.lat - place.lat) < 1e-5 && Math.abs(p.lon - place.lon) < 1e-5);
+      });
+      list.unshift({ lat: place.lat, lon: place.lon, name: place.name });
+      localStorage.setItem(RECENTS_KEY, JSON.stringify(list.slice(0, 6)));
+    } catch (e) { /* storage full / unavailable — non-critical */ }
+  }
+
+  function shortName(name) {
+    return (name || 'Destination').split(',').slice(0, 2).join(',');
+  }
+
+  function moveChip(delta) {
+    if (!recentListEl) return;
+    var chips = Array.prototype.slice.call(recentListEl.querySelectorAll('.recent-chip'));
+    if (!chips.length) return;
+    var idx = chips.indexOf(document.activeElement);
+    if (idx === -1) { chips[0].focus(); return; }
+    var next = (idx + delta + chips.length) % chips.length;
+    chips[next].focus();
+  }
+
+  function renderRecents() {
+    if (!recentListEl) return;
+    var list = loadRecents();
+    recentListEl.innerHTML = '';
+    if (!list.length) {
+      recentListEl.classList.add('hidden');
+      return;
+    }
+    recentListEl.classList.remove('hidden');
+    list.forEach(function (p, i) {
+      var chip = document.createElement('button');
+      chip.className = 'recent-chip focusable';
+      chip.dataset.recent = i;
+      chip.textContent = shortName(p.name);
+      recentListEl.appendChild(chip);
+    });
+    if (!recentListEl._wired) {
+      recentListEl.addEventListener('click', function (e) {
+        var chip = e.target.closest('.recent-chip');
+        if (!chip) return;
+        var p = loadRecents()[parseInt(chip.dataset.recent, 10)];
+        if (p) {
+          setSearchStatus('Planning route\u2026');
+          applyDestination(p);
+        }
+      });
+      recentListEl._wired = true;
+    }
   }
 
   /* ---------- Geocoding (destination lookup) ---------- */
@@ -495,6 +655,7 @@
 
   function applyDestination(place) {
     state.destination = place;
+    saveRecent(place);
     setSearchStatus('Planning route\u2026');
     fetchRoute();
   }
@@ -838,9 +999,6 @@
       case 'type':
         openSearchScreen();
         break;
-      case 'search-dest':
-        submitSearch();
-        break;
       case 'start-route':
         startNavigation();
         break;
@@ -921,18 +1079,41 @@
         }
       }
 
-      // While typing in the search field, let the wrist-band keyboard handle
-      // text/arrows natively; only intercept Enter (search) and Escape (back).
-      if (document.activeElement && document.activeElement.tagName === 'INPUT') {
-        if (e.key === 'Enter') {
-          submitSearch();
-          e.preventDefault();
-        } else if (e.key === 'Escape') {
-          document.activeElement.blur();
-          navigateBack();
-          e.preventDefault();
+      // Recent-destination chips: arrow left/right between them, down into keys.
+      if (state.currentScreen === 'type-screen' &&
+          document.activeElement &&
+          document.activeElement.classList.contains('recent-chip')) {
+        switch (e.key) {
+          case 'ArrowLeft':
+            moveChip(-1); e.preventDefault(); return;
+          case 'ArrowRight':
+            moveChip(1); e.preventDefault(); return;
+          case 'ArrowDown':
+            focusKey(0, 0); e.preventDefault(); return;
+          case 'ArrowUp':
+            e.preventDefault(); return;
         }
-        return;
+      }
+
+      // The on-screen keyboard uses 2D grid navigation instead of linear order.
+      if (state.currentScreen === 'type-screen' &&
+          document.activeElement &&
+          document.activeElement.classList.contains('kb-key')) {
+        switch (e.key) {
+          case 'ArrowUp':
+            // From the top row, jump up to the recent chips if any are shown.
+            if (kbFocus.r === 0 && recentListEl && !recentListEl.classList.contains('hidden')) {
+              var chip = recentListEl.querySelector('.recent-chip');
+              if (chip) { chip.focus(); e.preventDefault(); return; }
+            }
+            keyboardNav('up'); e.preventDefault(); return;
+          case 'ArrowDown':
+            keyboardNav('down'); e.preventDefault(); return;
+          case 'ArrowLeft':
+            keyboardNav('left'); e.preventDefault(); return;
+          case 'ArrowRight':
+            keyboardNav('right'); e.preventDefault(); return;
+        }
       }
 
       switch (e.key) {
@@ -1007,7 +1188,9 @@
     routeSummary = document.getElementById('route-summary');
     routeDestName = document.getElementById('route-dest-name');
     stepsList = document.getElementById('steps-list');
-    destInput = document.getElementById('dest-input');
+    keyboardEl = document.getElementById('keyboard');
+    typeQueryEl = document.getElementById('type-query');
+    recentListEl = document.getElementById('recent-list');
     typeStatus = document.getElementById('type-status');
 
     setupEvents();

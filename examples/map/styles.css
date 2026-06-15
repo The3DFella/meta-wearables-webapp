@@ -312,32 +312,81 @@ body {
   margin-top: 8px;
 }
 
-/* --- Type destination (text input) --- */
-.type-content { gap: 12px; justify-content: flex-start; }
-.dest-input {
-  width: 100%;
-  padding: 16px 16px;
+/* --- Type destination (on-screen D-pad keyboard) --- */
+.type-content { gap: 10px; }
+.type-query {
+  min-height: 44px;
+  padding: 10px 14px;
   background: var(--bg-card);
-  border: 2px solid var(--bg-tertiary);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: 22px;
+  border: 2px solid var(--bg-tertiary);
+  font-size: 24px;
   font-weight: 600;
-  font-family: inherit;
-  margin-top: 8px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-align: left;
 }
-.dest-input::placeholder { color: var(--text-muted); font-weight: 500; }
-.dest-input:focus {
-  outline: none;
-  border-color: var(--focus-ring);
-  box-shadow: 0 0 20px var(--focus-glow);
+.type-query::after {
+  content: '|';
+  color: var(--accent-primary);
+  animation: caret-blink 1s step-end infinite;
 }
+@keyframes caret-blink { 50% { opacity: 0; } }
 .type-status {
-  font-size: 14px;
+  font-size: 13px;
   color: var(--text-secondary);
   text-align: center;
-  min-height: 18px;
+  min-height: 16px;
 }
+.recent-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.recent-chip {
+  max-width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 40px;
+}
+.recent-chip::before { content: '\21BA  '; color: var(--accent-primary); }
+.recent-chip:focus { background: var(--bg-tertiary); color: var(--text-primary); }
+
+.keyboard {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: auto;
+}
+.kb-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.kb-key {
+  flex: 1;
+  min-width: 0;
+  min-height: 46px;
+  padding: 8px 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+.kb-key:focus { background: var(--bg-card); }
+.kb-key.kb-space { flex: 4; }
+.kb-key.primary { background: var(--accent-primary); color: #0a0a0f; flex: 2; }
+.kb-key.primary:focus { background: #33ddff; }
 
 /* --- Route steps list --- */
 .route-dest-card { flex-shrink: 0; }
