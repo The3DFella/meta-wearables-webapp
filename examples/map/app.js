@@ -53,6 +53,17 @@
   var voiceOrb, voiceStatus, voiceTranscript;
   var navBanner, navBannerIcon, navBannerInstruction, navBannerDistance;
   var routeSummary, routeDestName, stepsList;
+  var keyboardEl, typeQueryEl, typeStatus;
+
+  var KEY_ROWS = [
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'],
+    ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P'],
+    ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L'],
+    ['Z', 'X', 'C', 'V', 'B', 'N', 'M'],
+    ['SPACE', 'DEL', 'MIC', 'GO'],
+  ];
+  var typedQuery = '';
+  var kbFocus = { r: 1, c: 0 };
 
   function collectScreens() {
     document.querySelectorAll('.screen').forEach(function (s) {
@@ -421,6 +432,116 @@
     return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
   }
 
+  /* ---------- On-screen keyboard (D-pad destination entry) ---------- */
+
+  function keyLabel(k) {
+    if (k === 'SPACE') return 'space';
+    if (k === 'DEL') return '\u232B';
+    if (k === 'MIC') return '\uD83C\uDFA4';
+    if (k === 'GO') return 'Go';
+    return k;
+  }
+
+  function buildKeyboard() {
+    if (!keyboardEl || keyboardEl.childElementCount) return;
+    KEY_ROWS.forEach(function (row, r) {
+      var rowEl = document.createElement('div');
+      rowEl.className = 'kb-row';
+      row.forEach(function (k, c) {
+        var b = document.createElement('button');
+        b.className = 'kb-key focusable';
+        if (k === 'GO') b.classList.add('primary');
+        if (k === 'SPACE') b.classList.add('kb-space');
+        b.dataset.key = k;
+        b.dataset.r = r;
+        b.dataset.c = c;
+        b.textContent = keyLabel(k);
+        rowEl.appendChild(b);
+      });
+      keyboardEl.appendChild(rowEl);
+    });
+    keyboardEl.addEventListener('click', function (e) {
+      var keyEl = e.target.closest('.kb-key');
+      if (keyEl) handleKey(keyEl.dataset.key);
+    });
+  }
+
+  function focusKey(r, c) {
+    r = Math.max(0, Math.min(KEY_ROWS.length - 1, r));
+    c = Math.max(0, Math.min(KEY_ROWS[r].length - 1, c));
+    kbFocus = { r: r, c: c };
+    var el = keyboardEl.querySelector('[data-r="' + r + '"][data-c="' + c + '"]');
+    if (el) el.focus();
+  }
+
+  function keyboardNav(dir) {
+    var active = document.activeElement;
+    if (active && active.classList.contains('kb-key')) {
+      kbFocus = { r: parseInt(active.dataset.r, 10), c: parseInt(active.dataset.c, 10) };
+    }
+    var r = kbFocus.r, c = kbFocus.c;
+    if (dir === 'up') r--;
+    else if (dir === 'down') r++;
+    else if (dir === 'left') c--;
+    else if (dir === 'right') c++;
+
+    if (r < 0) r = KEY_ROWS.length - 1;
+    if (r > KEY_ROWS.length - 1) r = 0;
+    var len = KEY_ROWS[r].length;
+    if (c < 0) c = len - 1;
+    if (c > len - 1) c = 0;
+    focusKey(r, c);
+  }
+
+  function renderTypedQuery() {
+    if (typeQueryEl) typeQueryEl.textContent = typedQuery;
+  }
+
+  function handleKey(k) {
+    switch (k) {
+      case 'GO':
+        submitTyped();
+        return;
+      case 'DEL':
+        typedQuery = typedQuery.slice(0, -1);
+        break;
+      case 'SPACE':
+        if (typedQuery && typedQuery.slice(-1) !== ' ') typedQuery += ' ';
+        break;
+      case 'MIC':
+        navigateTo('voice-screen');
+        startListening();
+        return;
+      default:
+        typedQuery += k;
+    }
+    renderTypedQuery();
+  }
+
+  function submitTyped() {
+    var q = typedQuery.trim();
+    if (!q) {
+      if (typeStatus) typeStatus.textContent = 'Type a place first';
+      return;
+    }
+    if (typeStatus) typeStatus.textContent = 'Searching for \u201C' + q + '\u201D\u2026';
+    findDestination(q);
+  }
+
+  function openTypeScreen() {
+    buildKeyboard();
+    typedQuery = '';
+    renderTypedQuery();
+    if (typeStatus) typeStatus.textContent = 'Spell out a place, then press Go';
+    navigateTo('type-screen');
+    focusKey(1, 0);
+  }
+
+  function setSearchStatus(msg) {
+    if (voiceStatus) voiceStatus.textContent = msg;
+    if (typeStatus) typeStatus.textContent = msg;
+  }
+
   /* ---------- Voice recognition ---------- */
 
   function speechSupported() {
@@ -580,7 +701,7 @@
       })
       .then(function (results) {
         if (!results || results.length === 0) {
-          setVoiceState('Couldn\u2019t find that place', query, false);
+          setSearchStatus('Couldn\u2019t find \u201C' + query + '\u201D');
           speak('Sorry, I could not find ' + query);
           return;
         }
@@ -590,11 +711,11 @@
           lon: parseFloat(r.lon),
           name: r.display_name || query,
         };
-        setVoiceState('Planning route…', state.destination.name.split(',')[0], false);
+        setSearchStatus('Planning route\u2026');
         fetchRoute();
       })
       .catch(function () {
-        setVoiceState('Search failed — try again', query, false);
+        setSearchStatus('Search failed — try again');
       });
   }
 
@@ -603,7 +724,7 @@
   function fetchRoute(silent) {
     if (!state.destination) return;
     if (state.userLat === null) {
-      setVoiceState('Waiting for your location…', '', false);
+      setSearchStatus('Waiting for your location\u2026');
       return;
     }
 
@@ -656,7 +777,7 @@
           state.rerouting = false;
           return;
         }
-        setVoiceState('Couldn\u2019t plan a walking route', '', false);
+        setSearchStatus('Couldn\u2019t plan a walking route');
         speak('Sorry, I could not plan a route there');
       });
   }
@@ -867,6 +988,9 @@
       case 'details':
         navigateTo('details-screen');
         break;
+      case 'type':
+        openTypeScreen();
+        break;
       case 'voice':
         navigateTo('voice-screen');
         // Start within the same user-gesture call stack (required for the mic
@@ -930,6 +1054,22 @@
           case 'Enter':
           case 'Escape':
             setPanMode(false); e.preventDefault(); return;
+        }
+      }
+
+      // The keyboard uses 2D grid navigation instead of linear focus order.
+      if (state.currentScreen === 'type-screen' &&
+          document.activeElement &&
+          document.activeElement.classList.contains('kb-key')) {
+        switch (e.key) {
+          case 'ArrowUp':
+            keyboardNav('up'); e.preventDefault(); return;
+          case 'ArrowDown':
+            keyboardNav('down'); e.preventDefault(); return;
+          case 'ArrowLeft':
+            keyboardNav('left'); e.preventDefault(); return;
+          case 'ArrowRight':
+            keyboardNav('right'); e.preventDefault(); return;
         }
       }
 
@@ -1008,6 +1148,9 @@
     routeSummary = document.getElementById('route-summary');
     routeDestName = document.getElementById('route-dest-name');
     stepsList = document.getElementById('steps-list');
+    keyboardEl = document.getElementById('keyboard');
+    typeQueryEl = document.getElementById('type-query');
+    typeStatus = document.getElementById('type-status');
 
     setupEvents();
     scheduleRender();

@@ -41,9 +41,21 @@
         <button class="nav-item focusable" data-action="zoom-out">−</button>
         <button class="nav-item focusable" data-action="zoom-in">+</button>
         <button class="nav-item focusable primary" data-action="recenter">Center</button>
-        <button class="nav-item focusable" data-action="voice">🎤 Go</button>
+        <button class="nav-item focusable" data-action="type">🔍 Go</button>
         <button class="nav-item focusable" data-action="details">Info</button>
       </nav>
+    </div>
+
+    <div id="type-screen" class="screen hidden">
+      <header class="header">
+        <button class="back-btn focusable" data-action="back">&#8592;</button>
+        <h1>Destination</h1>
+      </header>
+      <div class="content type-content">
+        <div class="type-query" id="type-query" aria-live="polite"></div>
+        <div class="type-status" id="type-status">Spell out a place, then press Go</div>
+        <div class="keyboard" id="keyboard"></div>
+      </div>
     </div>
 
     <div id="voice-screen" class="screen hidden">
@@ -57,6 +69,7 @@
         <div class="voice-transcript" id="voice-transcript"></div>
         <div class="nav-bar voice-nav">
           <button class="nav-item focusable primary" data-action="voice-listen" id="voice-listen-btn">Speak</button>
+          <button class="nav-item focusable" data-action="type">Type</button>
           <button class="nav-item focusable" data-action="back">Cancel</button>
         </div>
       </div>
