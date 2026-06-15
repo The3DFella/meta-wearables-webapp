@@ -19,16 +19,66 @@
         <div class="map-wrapper">
           <canvas id="map-canvas" class="focusable" tabindex="0" data-action="map-focus"></canvas>
           <div class="map-crosshair" aria-hidden="true">+</div>
+          <div class="nav-banner hidden" id="nav-banner">
+            <div class="nav-banner-main">
+              <div class="nav-banner-icon" id="nav-banner-icon">↑</div>
+              <div class="nav-banner-text">
+                <div class="nav-banner-instruction" id="nav-banner-instruction">—</div>
+                <div class="nav-banner-distance" id="nav-banner-distance">—</div>
+              </div>
+            </div>
+            <div class="nav-banner-actions">
+              <button class="nav-banner-btn focusable" data-action="route-steps">Steps</button>
+              <button class="nav-banner-btn focusable danger" data-action="end-route">End</button>
+            </div>
+          </div>
           <div class="map-attribution">© OpenStreetMap</div>
+          <img class="brand-logo" src="Gavriel_logo.png" alt="Gavriel" aria-hidden="true">
         </div>
         <div class="coords-bar" id="coords-bar">—</div>
       </div>
       <nav class="nav-bar">
         <button class="nav-item focusable" data-action="zoom-out">−</button>
-        <button class="nav-item focusable primary" data-action="recenter">Center</button>
         <button class="nav-item focusable" data-action="zoom-in">+</button>
+        <button class="nav-item focusable primary" data-action="recenter">Center</button>
+        <button class="nav-item focusable" data-action="voice">🎤 Go</button>
         <button class="nav-item focusable" data-action="details">Info</button>
       </nav>
+    </div>
+
+    <div id="voice-screen" class="screen hidden">
+      <header class="header">
+        <button class="back-btn focusable" data-action="back">&#8592;</button>
+        <h1>Where to?</h1>
+      </header>
+      <div class="content voice-content">
+        <div class="voice-orb" id="voice-orb">🎤</div>
+        <div class="voice-status" id="voice-status">Tap to speak</div>
+        <div class="voice-transcript" id="voice-transcript"></div>
+        <div class="nav-bar voice-nav">
+          <button class="nav-item focusable primary" data-action="voice-listen" id="voice-listen-btn">Speak</button>
+          <button class="nav-item focusable" data-action="back">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="route-screen" class="screen hidden">
+      <header class="header">
+        <button class="back-btn focusable" data-action="back">&#8592;</button>
+        <h1>Route</h1>
+        <span class="header-meta" id="route-summary">—</span>
+      </header>
+      <div class="content">
+        <div class="card route-dest-card">
+          <div class="card-subtitle">Walking to</div>
+          <div class="card-title" id="route-dest-name">—</div>
+        </div>
+        <div class="steps-list" id="steps-list"></div>
+        <div class="nav-bar route-nav">
+          <button class="nav-item focusable primary" data-action="start-route">Start</button>
+          <button class="nav-item focusable" data-action="voice">Change</button>
+        </div>
+      </div>
     </div>
 
     <div id="details-screen" class="screen hidden">

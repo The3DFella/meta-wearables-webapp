@@ -7,7 +7,17 @@ OpenStreetMap location viewer built for Meta Ray-Ban Display glasses.
 - Live GPS location via `navigator.geolocation` (from paired phone)
 - OpenStreetMap raster tiles
 - Reverse geocoding via [Nominatim](https://nominatim.org/) (open source)
-- D-pad navigation: focus the map canvas and use arrows to pan
+- **Voice walking navigation** — say a destination and get a planned walking
+  route with live, spoken turn-by-turn directions:
+  - Speech-to-text via the Web Speech API (`🎤 Go` button)
+  - Destination lookup via Nominatim search
+  - Walking route from the FOSSGIS-hosted OSRM `foot` router (free, no key)
+  - Route + destination drawn on the map; an on-map banner shows the next
+    maneuver and distance, auto-advancing as you walk
+  - Step instructions are spoken aloud via `speechSynthesis`
+  - Off-route detection triggers an automatic reroute
+- D-pad navigation: focus the map canvas, press **Enter** to toggle pan mode,
+  then use arrows to pan (green ring = pan mode)
 - Zoom in/out and recenter buttons
 
 ## Run locally

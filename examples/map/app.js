@@ -4,9 +4,15 @@
   var TILE_SIZE = 256;
   var TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   var NOMINATIM_URL = 'https://nominatim.openstreetmap.org/reverse';
+  var NOMINATIM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+  // FOSSGIS-hosted OSRM foot profile (free, no key) — same router used by openstreetmap.org.
+  var OSRM_FOOT_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
   var MIN_ZOOM = 12;
   var MAX_ZOOM = 18;
   var PAN_STEP = 48;
+  var STEP_ADVANCE_M = 22;   // advance to next maneuver within this distance
+  var ARRIVE_M = 18;         // considered arrived within this distance
+  var REROUTE_M = 45;        // off-route distance that triggers a reroute
 
   var state = {
     currentScreen: 'map-screen',
@@ -22,16 +28,31 @@
     placeName: null,
     geoWatchId: null,
     mapFocused: false,
+    panMode: false,
     tileCache: {},
     pendingTiles: {},
     lastNominatimRequest: 0,
     renderScheduled: false,
+    // routing / navigation
+    destination: null,        // { lat, lon, name }
+    route: null,              // { coords:[[lon,lat]], steps:[...], distance, duration }
+    routeActive: false,
+    currentStepIndex: 0,
+    arrived: false,
+    rerouting: false,
+    lastRerouteAt: 0,
   };
+
+  var recognition = null;
+  var listening = false;
 
   var screens = {};
   var canvas, ctx;
   var gpsStatus, coordsBar, placeNameEl;
   var detailLat, detailLon, detailAccuracy, detailHeading, errorMessage;
+  var voiceOrb, voiceStatus, voiceTranscript;
+  var navBanner, navBannerIcon, navBannerInstruction, navBannerDistance;
+  var routeSummary, routeDestName, stepsList;
 
   function collectScreens() {
     document.querySelectorAll('.screen').forEach(function (s) {
@@ -174,6 +195,48 @@
       }
     }
 
+    // Route polyline
+    if (state.route && state.route.coords && state.route.coords.length > 1) {
+      ctx.beginPath();
+      for (var i = 0; i < state.route.coords.length; i++) {
+        var c = state.route.coords[i];
+        var pw = latLonToWorld(c[1], c[0], state.zoom);
+        var px = pw.x - topLeftX;
+        var py = pw.y - topLeftY;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgba(0, 212, 255, 0.45)';
+      ctx.lineWidth = 9;
+      ctx.stroke();
+      ctx.strokeStyle = '#00d4ff';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+
+    // Destination marker
+    if (state.destination) {
+      var dWorld = latLonToWorld(state.destination.lat, state.destination.lon, state.zoom);
+      var dx = dWorld.x - topLeftX;
+      var dy = dWorld.y - topLeftY;
+      ctx.beginPath();
+      ctx.arc(dx, dy - 4, 9, 0, Math.PI * 2);
+      ctx.fillStyle = '#ff4466';
+      ctx.fill();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(dx - 7, dy);
+      ctx.lineTo(dx, dy + 11);
+      ctx.lineTo(dx + 7, dy);
+      ctx.closePath();
+      ctx.fillStyle = '#ff4466';
+      ctx.fill();
+    }
+
     if (state.userLat !== null && state.userLon !== null) {
       var userWorld = latLonToWorld(state.userLat, state.userLon, state.zoom);
       var ux = userWorld.x - topLeftX;
@@ -293,6 +356,7 @@
     updateCoordsBar();
     updateGpsStatus('Live');
     reverseGeocode(coords.latitude, coords.longitude);
+    if (state.routeActive) updateNavigation();
     scheduleRender();
 
     if (screens['error-screen'] && !screens['error-screen'].classList.contains('hidden')) {
@@ -333,6 +397,391 @@
     );
   }
 
+  /* ---------- Geometry helpers ---------- */
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    var R = 6371000;
+    var dLat = (lat2 - lat1) * Math.PI / 180;
+    var dLon = (lon2 - lon1) * Math.PI / 180;
+    var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  function formatDistance(m) {
+    if (m == null) return '—';
+    if (m < 1000) return Math.round(m) + ' m';
+    return (m / 1000).toFixed(m < 10000 ? 1 : 0) + ' km';
+  }
+
+  function formatDuration(s) {
+    var min = Math.round(s / 60);
+    if (min < 60) return min + ' min';
+    return Math.floor(min / 60) + 'h ' + (min % 60) + 'm';
+  }
+
+  /* ---------- Voice recognition ---------- */
+
+  function speechSupported() {
+    return ('webkitSpeechRecognition' in window) || ('SpeechRecognition' in window);
+  }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    try {
+      window.speechSynthesis.cancel();
+      var u = new SpeechSynthesisUtterance(text);
+      u.rate = 1.0;
+      u.lang = 'en-US';
+      window.speechSynthesis.speak(u);
+    } catch (e) { /* non-critical */ }
+  }
+
+  function setVoiceState(status, transcript, isListening) {
+    if (voiceStatus) voiceStatus.textContent = status;
+    if (transcript !== undefined && voiceTranscript) voiceTranscript.textContent = transcript;
+    if (voiceOrb) voiceOrb.classList.toggle('listening', !!isListening);
+    listening = !!isListening;
+  }
+
+  function startListening() {
+    if (!speechSupported()) {
+      setVoiceState('Voice not supported on this device', '', false);
+      return;
+    }
+    var Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (recognition) {
+      try { recognition.abort(); } catch (e) {}
+    }
+    recognition = new Ctor();
+    recognition.lang = 'en-US';
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+    recognition.continuous = false;
+
+    recognition.onstart = function () {
+      setVoiceState('Listening…', '', true);
+    };
+    recognition.onresult = function (e) {
+      var transcript = '';
+      for (var i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
+      transcript = transcript.trim();
+      if (voiceTranscript) voiceTranscript.textContent = transcript;
+      if (e.results[e.results.length - 1].isFinal && transcript) {
+        setVoiceState('Searching…', transcript, false);
+        findDestination(transcript);
+      }
+    };
+    recognition.onerror = function (ev) {
+      var msg = ev.error === 'not-allowed'
+        ? 'Microphone permission denied'
+        : (ev.error === 'no-speech' ? 'No speech detected — try again' : 'Voice error — try again');
+      setVoiceState(msg, '', false);
+    };
+    recognition.onend = function () {
+      if (listening) setVoiceState('Tap to speak', undefined, false);
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      setVoiceState('Could not start microphone', '', false);
+    }
+  }
+
+  /* ---------- Geocoding (destination lookup) ---------- */
+
+  function findDestination(query) {
+    var url = NOMINATIM_SEARCH_URL +
+      '?format=json&limit=1&q=' + encodeURIComponent(query);
+    // Bias results toward the user's vicinity when we know where they are.
+    if (state.userLat !== null && state.userLon !== null) {
+      var d = 0.5;
+      url += '&viewbox=' +
+        (state.userLon - d) + ',' + (state.userLat + d) + ',' +
+        (state.userLon + d) + ',' + (state.userLat - d);
+    }
+
+    fetch(url, { headers: { 'Accept': 'application/json' } })
+      .then(function (res) {
+        if (!res.ok) throw new Error('Search failed');
+        return res.json();
+      })
+      .then(function (results) {
+        if (!results || results.length === 0) {
+          setVoiceState('Couldn\u2019t find that place', query, false);
+          speak('Sorry, I could not find ' + query);
+          return;
+        }
+        var r = results[0];
+        state.destination = {
+          lat: parseFloat(r.lat),
+          lon: parseFloat(r.lon),
+          name: r.display_name || query,
+        };
+        setVoiceState('Planning route…', state.destination.name.split(',')[0], false);
+        fetchRoute();
+      })
+      .catch(function () {
+        setVoiceState('Search failed — try again', query, false);
+      });
+  }
+
+  /* ---------- Walking route ---------- */
+
+  function fetchRoute(silent) {
+    if (!state.destination) return;
+    if (state.userLat === null) {
+      setVoiceState('Waiting for your location…', '', false);
+      return;
+    }
+
+    var coords =
+      state.userLon + ',' + state.userLat + ';' +
+      state.destination.lon + ',' + state.destination.lat;
+    var url = OSRM_FOOT_URL + coords +
+      '?overview=full&geometries=geojson&steps=true&annotations=false';
+
+    fetch(url)
+      .then(function (res) {
+        if (!res.ok) throw new Error('Routing failed');
+        return res.json();
+      })
+      .then(function (data) {
+        if (data.code !== 'Ok' || !data.routes || !data.routes.length) {
+          throw new Error('No route');
+        }
+        var r = data.routes[0];
+        var steps = [];
+        r.legs.forEach(function (leg) {
+          leg.steps.forEach(function (s) {
+            steps.push({
+              text: instructionText(s.maneuver, s.name),
+              icon: maneuverIcon(s.maneuver),
+              distance: s.distance,
+              loc: s.maneuver.location, // [lon, lat]
+            });
+          });
+        });
+        state.route = {
+          coords: r.geometry.coordinates,
+          steps: steps,
+          distance: r.distance,
+          duration: r.duration,
+        };
+        state.currentStepIndex = 0;
+        state.arrived = false;
+        renderRouteScreen();
+        scheduleRender();
+        if (silent) {
+          // reroute: stay on map, just refresh guidance
+          updateNavBanner();
+        } else {
+          navigateTo('route-screen');
+        }
+      })
+      .catch(function () {
+        if (silent) {
+          state.rerouting = false;
+          return;
+        }
+        setVoiceState('Couldn\u2019t plan a walking route', '', false);
+        speak('Sorry, I could not plan a route there');
+      });
+  }
+
+  function maneuverIcon(m) {
+    var type = m.type;
+    var mod = m.modifier || '';
+    if (type === 'arrive') return '🏁';
+    if (type === 'depart') return '↑';
+    if (type === 'roundabout' || type === 'rotary') return '↻';
+    if (mod.indexOf('left') !== -1) return mod.indexOf('slight') !== -1 ? '↖' : '←';
+    if (mod.indexOf('right') !== -1) return mod.indexOf('slight') !== -1 ? '↗' : '→';
+    if (mod === 'uturn') return '↩';
+    return '↑';
+  }
+
+  function instructionText(m, name) {
+    var type = m.type;
+    var mod = m.modifier;
+    var on = name ? (' onto ' + name) : '';
+    var along = name ? (' on ' + name) : '';
+
+    switch (type) {
+      case 'depart':
+        return 'Head off' + along;
+      case 'turn':
+        return 'Turn ' + (mod || 'ahead') + on;
+      case 'new name':
+        return 'Continue' + along;
+      case 'continue':
+        return 'Continue ' + (mod || 'straight') + along;
+      case 'merge':
+        return 'Merge' + on;
+      case 'fork':
+        return 'Keep ' + (mod || 'straight') + on;
+      case 'end of road':
+        return 'Turn ' + (mod || 'ahead') + on;
+      case 'roundabout':
+      case 'rotary':
+        return 'Take the roundabout' + (m.exit ? ', exit ' + m.exit : '') + on;
+      case 'arrive':
+        return 'Arrive at your destination';
+      default:
+        return (type ? type.charAt(0).toUpperCase() + type.slice(1) : 'Continue') +
+          (mod ? ' ' + mod : '') + on;
+    }
+  }
+
+  /* ---------- Route screen rendering ---------- */
+
+  function renderRouteScreen() {
+    if (!state.route) return;
+    routeDestName.textContent = state.destination
+      ? state.destination.name.split(',').slice(0, 2).join(',')
+      : '—';
+    routeSummary.textContent =
+      formatDistance(state.route.distance) + ' · ' + formatDuration(state.route.duration);
+
+    stepsList.innerHTML = '';
+    state.route.steps.forEach(function (step, i) {
+      var item = document.createElement('div');
+      item.className = 'step-item';
+      if (state.routeActive && i < state.currentStepIndex) item.classList.add('done');
+      if (state.routeActive && i === state.currentStepIndex) item.classList.add('active');
+      item.innerHTML =
+        '<div class="step-icon">' + step.icon + '</div>' +
+        '<div class="step-body">' +
+        '<div class="step-text"></div>' +
+        '<div class="step-dist">' + formatDistance(step.distance) + '</div>' +
+        '</div>';
+      item.querySelector('.step-text').textContent = step.text;
+      stepsList.appendChild(item);
+    });
+  }
+
+  /* ---------- Live navigation ---------- */
+
+  function startNavigation() {
+    if (!state.route) return;
+    state.routeActive = true;
+    state.arrived = false;
+    state.currentStepIndex = 0;
+    state.followUser = true;
+    if (state.userLat !== null) {
+      state.centerLat = state.userLat;
+      state.centerLon = state.userLon;
+    }
+    navBanner.classList.remove('hidden');
+    navigateTo('map-screen', { addToHistory: false });
+    state.screenHistory = [];
+    updateNavigation();
+    var first = state.route.steps[0];
+    if (first) speak(first.text);
+    scheduleRender();
+  }
+
+  function endNavigation(silent) {
+    state.routeActive = false;
+    state.route = null;
+    state.destination = null;
+    state.arrived = false;
+    state.currentStepIndex = 0;
+    if (navBanner) navBanner.classList.add('hidden');
+    scheduleRender();
+    if (!silent) speak('Navigation ended');
+  }
+
+  function updateNavBanner() {
+    if (!state.routeActive || !state.route) return;
+    var steps = state.route.steps;
+    var idx = Math.min(state.currentStepIndex, steps.length - 1);
+    var step = steps[idx];
+    if (!step) return;
+    navBannerIcon.textContent = step.icon;
+    navBannerInstruction.textContent = step.text;
+
+    var distToStep = null;
+    if (state.userLat !== null && step.loc) {
+      distToStep = haversine(state.userLat, state.userLon, step.loc[1], step.loc[0]);
+    }
+    navBannerDistance.textContent = distToStep !== null
+      ? 'In ' + formatDistance(distToStep)
+      : formatDistance(step.distance);
+  }
+
+  function updateNavigation() {
+    if (!state.routeActive || !state.route || state.userLat === null) return;
+
+    var steps = state.route.steps;
+
+    // Arrival check
+    if (state.destination) {
+      var distToDest = haversine(
+        state.userLat, state.userLon,
+        state.destination.lat, state.destination.lon
+      );
+      if (distToDest <= ARRIVE_M && !state.arrived) {
+        state.arrived = true;
+        state.currentStepIndex = steps.length - 1;
+        navBannerIcon.textContent = '🏁';
+        navBannerInstruction.textContent = 'You have arrived';
+        navBannerDistance.textContent = state.destination.name.split(',')[0];
+        speak('You have arrived at your destination');
+        renderRouteScreen();
+        return;
+      }
+    }
+
+    // Advance through maneuvers we've reached.
+    var advanced = false;
+    while (state.currentStepIndex < steps.length - 1) {
+      var step = steps[state.currentStepIndex];
+      if (!step.loc) break;
+      var d = haversine(state.userLat, state.userLon, step.loc[1], step.loc[0]);
+      if (d <= STEP_ADVANCE_M) {
+        state.currentStepIndex++;
+        advanced = true;
+      } else {
+        break;
+      }
+    }
+    if (advanced) {
+      var ns = steps[state.currentStepIndex];
+      if (ns) speak(ns.text);
+      renderRouteScreen();
+    }
+
+    // Off-route detection → silent reroute (throttled).
+    maybeReroute();
+
+    updateNavBanner();
+  }
+
+  function maybeReroute() {
+    if (!state.route || !state.route.coords || state.rerouting || state.arrived) return;
+    var now = Date.now();
+    if (now - state.lastRerouteAt < 8000) return;
+
+    var minDist = Infinity;
+    var coords = state.route.coords;
+    for (var i = 0; i < coords.length; i++) {
+      var d = haversine(state.userLat, state.userLon, coords[i][1], coords[i][0]);
+      if (d < minDist) minDist = d;
+    }
+    if (minDist > REROUTE_M) {
+      state.rerouting = true;
+      state.lastRerouteAt = now;
+      navBannerDistance.textContent = 'Rerouting…';
+      fetchRoute(true);
+      setTimeout(function () { state.rerouting = false; }, 1000);
+    }
+  }
+
   function handleAction(action) {
     switch (action) {
       case 'back':
@@ -349,6 +798,26 @@
         break;
       case 'details':
         navigateTo('details-screen');
+        break;
+      case 'voice':
+        navigateTo('voice-screen');
+        setVoiceState('Tap to speak', '', false);
+        setTimeout(startListening, 250);
+        break;
+      case 'voice-listen':
+        startListening();
+        break;
+      case 'start-route':
+        startNavigation();
+        break;
+      case 'route-steps':
+        renderRouteScreen();
+        navigateTo('route-screen');
+        break;
+      case 'end-route':
+        endNavigation();
+        navigateTo('map-screen', { addToHistory: false });
+        state.screenHistory = [];
         break;
       case 'refresh-location':
       case 'retry-location':
@@ -374,27 +843,24 @@
     });
     canvas.addEventListener('blur', function () {
       state.mapFocused = false;
+      setPanMode(false);
     });
 
     document.addEventListener('keydown', function (e) {
-      if (state.currentScreen === 'map-screen' && state.mapFocused) {
+      // Pan mode: canvas is "activated" and arrows pan the map.
+      if (state.panMode && state.currentScreen === 'map-screen' && state.mapFocused) {
         switch (e.key) {
           case 'ArrowUp':
-            panMap(0, -PAN_STEP);
-            e.preventDefault();
-            return;
+            panMap(0, -PAN_STEP); e.preventDefault(); return;
           case 'ArrowDown':
-            panMap(0, PAN_STEP);
-            e.preventDefault();
-            return;
+            panMap(0, PAN_STEP); e.preventDefault(); return;
           case 'ArrowLeft':
-            panMap(-PAN_STEP, 0);
-            e.preventDefault();
-            return;
+            panMap(-PAN_STEP, 0); e.preventDefault(); return;
           case 'ArrowRight':
-            panMap(PAN_STEP, 0);
-            e.preventDefault();
-            return;
+            panMap(PAN_STEP, 0); e.preventDefault(); return;
+          case 'Enter':
+          case 'Escape':
+            setPanMode(false); e.preventDefault(); return;
         }
       }
 
@@ -416,7 +882,10 @@
           e.preventDefault();
           break;
         case 'Enter':
-          if (document.activeElement &&
+          // Enter on the focused map canvas toggles pan mode.
+          if (document.activeElement === canvas) {
+            setPanMode(true);
+          } else if (document.activeElement &&
               document.activeElement.classList.contains('focusable')) {
             document.activeElement.click();
           }
@@ -428,6 +897,11 @@
           break;
       }
     });
+  }
+
+  function setPanMode(on) {
+    state.panMode = !!on;
+    if (canvas) canvas.classList.toggle('pan-mode', state.panMode);
   }
 
   function resizeCanvas() {
@@ -455,6 +929,16 @@
     detailAccuracy = document.getElementById('detail-accuracy');
     detailHeading = document.getElementById('detail-heading');
     errorMessage = document.getElementById('error-message');
+    voiceOrb = document.getElementById('voice-orb');
+    voiceStatus = document.getElementById('voice-status');
+    voiceTranscript = document.getElementById('voice-transcript');
+    navBanner = document.getElementById('nav-banner');
+    navBannerIcon = document.getElementById('nav-banner-icon');
+    navBannerInstruction = document.getElementById('nav-banner-instruction');
+    navBannerDistance = document.getElementById('nav-banner-distance');
+    routeSummary = document.getElementById('route-summary');
+    routeDestName = document.getElementById('route-dest-name');
+    stepsList = document.getElementById('steps-list');
 
     setupEvents();
     scheduleRender();

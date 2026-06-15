@@ -103,6 +103,9 @@ body {
   outline: none;
   box-shadow: inset 0 0 0 2px var(--focus-ring), 0 0 16px var(--focus-glow);
 }
+#map-canvas.pan-mode:focus {
+  box-shadow: inset 0 0 0 3px var(--accent-secondary), 0 0 20px rgba(0, 255, 136, 0.5);
+}
 
 .map-crosshair {
   position: absolute;
@@ -125,6 +128,16 @@ body {
   background: rgba(10, 10, 15, 0.75);
   padding: 2px 6px;
   border-radius: 4px;
+  pointer-events: none;
+}
+
+.brand-logo {
+  position: absolute;
+  bottom: 6px;
+  left: 8px;
+  height: 18px;
+  width: auto;
+  opacity: 0.85;
   pointer-events: none;
 }
 
@@ -232,6 +245,156 @@ body {
 .refresh-btn {
   width: 100%;
   margin-top: auto;
+}
+
+/* --- Navigation banner (live turn-by-turn over the map) --- */
+.nav-banner {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  background: rgba(10, 10, 15, 0.92);
+  border: 2px solid var(--accent-primary);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+}
+.nav-banner-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nav-banner-icon {
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.nav-banner-text { flex: 1; min-width: 0; }
+.nav-banner-instruction {
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+.nav-banner-distance {
+  font-size: 13px;
+  color: var(--accent-primary);
+  margin-top: 2px;
+  font-weight: 600;
+}
+.nav-banner-actions {
+  display: flex;
+  gap: 8px;
+}
+.nav-banner-btn {
+  flex: 1;
+  padding: 8px;
+  background: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  min-height: 36px;
+}
+.nav-banner-btn.danger { color: var(--danger); }
+.nav-banner-btn:focus { background: var(--bg-card); }
+
+/* --- Voice screen --- */
+.voice-content {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 16px;
+}
+.voice-orb {
+  font-size: 56px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card);
+  border: 3px solid var(--bg-tertiary);
+  transition: all 0.2s ease;
+}
+.voice-orb.listening {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 30px var(--focus-glow);
+  animation: voice-pulse 1.4s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+  0%, 100% { transform: scale(1); box-shadow: 0 0 20px var(--focus-glow); }
+  50% { transform: scale(1.06); box-shadow: 0 0 40px var(--focus-glow); }
+}
+.voice-status {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.voice-transcript {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-height: 28px;
+  max-width: 520px;
+  line-height: 1.3;
+}
+.voice-nav, .route-nav {
+  width: 100%;
+  background: transparent;
+  padding: 8px 0 0;
+  margin-top: 8px;
+}
+
+/* --- Route steps list --- */
+.route-dest-card { flex-shrink: 0; }
+.steps-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 4px;
+}
+.step-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  border: 2px solid transparent;
+}
+.step-item.active {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 16px var(--focus-glow);
+}
+.step-item.done { opacity: 0.45; }
+.step-icon {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+  width: 28px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.step-body { flex: 1; min-width: 0; }
+.step-text {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+.step-dist {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 .hidden { display: none !important; }
