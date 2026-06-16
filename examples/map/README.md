@@ -5,7 +5,16 @@ OpenStreetMap location viewer built for Meta Ray-Ban Display glasses.
 ## Features
 
 - Live GPS location via `navigator.geolocation` (from paired phone)
-- OpenStreetMap raster tiles
+- **Vector map rendering** (Organic-Maps-style) via [MapLibre GL JS](https://maplibre.org/)
+  with free, no-key [OpenFreeMap](https://openfreemap.org/) tiles, recolored at
+  runtime into a dark additive-display theme. Crisp at any zoom, smooth pan/zoom.
+- **Automatic WebGL detection with graceful fallback.** If the glasses browser
+  can't run WebGL, the app falls back to a 2D `<canvas>` raster engine using dark
+  CARTO tiles — same UI, routing, and navigation. The active engine is shown in
+  the header (`Vector` vs `2D`) and logged to the console.
+- **Offline maps** via a Service Worker (`sw.js`): the app shell is cached
+  cache-first, and map tiles/glyphs/sprites are cached stale-while-revalidate, so
+  previously-viewed areas keep working with no network.
 - Reverse geocoding via [Nominatim](https://nominatim.org/) (open source)
 - **Walking navigation** — enter a destination and get a planned walking route
   with live, spoken turn-by-turn directions:
@@ -18,9 +27,21 @@ OpenStreetMap location viewer built for Meta Ray-Ban Display glasses.
     maneuver and distance, auto-advancing as you walk
   - Step instructions are spoken aloud via `speechSynthesis`
   - Off-route detection triggers an automatic reroute
-- D-pad navigation: focus the map canvas, press **Enter** to toggle pan mode,
+- D-pad navigation: focus the map, press **Enter** to toggle pan mode,
   then use arrows to pan (green ring = pan mode)
 - Zoom in/out and recenter buttons
+
+## Map engine
+
+The map layer is abstracted behind a small interface so the rest of the app
+(routing, search, navigation, markers) is engine-agnostic:
+
+- `createGLMapView()` — MapLibre GL vector tiles (preferred). Requires WebGL.
+- `createCanvasMapView()` — 2D canvas raster fallback (no WebGL needed).
+
+On startup `detectWebGL()` picks the engine; if MapLibre init throws, it falls
+back to canvas automatically. MapLibre and its CSS are vendored under `vendor/`
+so the app loads offline and needs no build step or CDN.
 
 ## Run locally
 

@@ -6,6 +6,7 @@
   <meta name="description" content="OpenStreetMap location viewer for Meta Ray-Ban Display Glasses.">
   <meta name="mrbd-web-app-capable" content="yes">
   <title>My Map</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,7 +18,9 @@
       </header>
       <div class="content map-content">
         <div class="map-wrapper">
-          <canvas id="map-canvas" class="focusable" tabindex="0" data-action="map-focus"></canvas>
+          <div id="map" class="map-gl"></div>
+          <canvas id="map-canvas" class="map-canvas hidden"></canvas>
+          <div id="map-focus" class="map-focus focusable" tabindex="0" data-action="map-focus" aria-label="Map. Tap to pan."></div>
           <div class="map-crosshair" aria-hidden="true">+</div>
           <div class="nav-banner hidden" id="nav-banner">
             <div class="nav-banner-main">
@@ -32,7 +35,7 @@
               <button class="nav-banner-btn focusable danger" data-action="end-route">End</button>
             </div>
           </div>
-          <div class="map-attribution">© OpenStreetMap</div>
+          <div class="map-attribution" id="map-attribution">© OpenStreetMap</div>
           <img class="brand-logo" src="Gavriel_logo.png" alt="Gavriel" aria-hidden="true">
         </div>
         <div class="coords-bar" id="coords-bar">—</div>
@@ -123,6 +126,7 @@
       </div>
     </div>
   </div>
+  <script src="vendor/maplibre-gl.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
