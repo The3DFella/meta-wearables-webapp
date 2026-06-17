@@ -41,6 +41,7 @@
     mateCenter: null,
     demo: false,
     demoTimer: null,
+    lowAccuracyTried: false,
   };
 
   var screens = {};
@@ -515,6 +516,7 @@
   function onLocationUpdate(pos) {
     var coords = pos.coords;
     var wasDemo = state.demo;
+    var firstFix = state.userLat === null;
     state.demo = false;
     if (state.demoTimer) { clearTimeout(state.demoTimer); state.demoTimer = null; }
     state.userLat = coords.latitude;
@@ -525,7 +527,8 @@
     // If teammates were placed around a demo location, move the whole squad to
     // the real position once we get a genuine fix.
     ensureMates(coords.latitude, coords.longitude, wasDemo);
-    if (wasDemo) { state.followUser = true; if (Map) Map.recenter(); }
+    // Snap to the user's location on the first real fix (and after demo).
+    if (firstFix || wasDemo) { state.followUser = true; if (Map) Map.recenter(); }
     updateCoordsBar();
     updateGpsStatus('Live');
     if (Map) Map.refreshUser();
@@ -550,6 +553,17 @@
   }
   function onLocationError(err) {
     if (state.userLat !== null) return;
+    // On the glasses, high-accuracy GPS from the phone can time out or be
+    // unavailable. Retry once with relaxed options (network/coarse location).
+    if (err && (err.code === 2 || err.code === 3) && !state.lowAccuracyTried) {
+      state.lowAccuracyTried = true;
+      updateGpsStatus('Locating…');
+      navigator.geolocation.getCurrentPosition(
+        onLocationUpdate, onLocationError,
+        { enableHighAccuracy: false, maximumAge: 60000, timeout: 25000 }
+      );
+      return;
+    }
     if (err && err.code === 1) {
       // Permission denied (or browser blocked it on an insecure origin).
       updateGpsStatus('Denied');
@@ -572,6 +586,7 @@
     }
     if (state.geoWatchId !== null) navigator.geolocation.clearWatch(state.geoWatchId);
     if (state.demoTimer) clearTimeout(state.demoTimer);
+    state.lowAccuracyTried = false;
     updateGpsStatus('Locating…');
     var opts = { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 };
     // One-shot request up front: reliably triggers the permission prompt and a
