@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
-  <meta name="description" content="OpenStreetMap location viewer for Meta Ray-Ban Display Glasses.">
+  <meta name="description" content="See your location and your squad of nearby teammates on a live map, built for Meta Ray-Ban Display Glasses.">
   <meta name="mrbd-web-app-capable" content="yes">
-  <title>My Map</title>
+  <title>Squad Map</title>
   <link rel="stylesheet" href="vendor/maplibre-gl.css">
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -13,7 +13,7 @@
   <div id="app">
     <div id="map-screen" class="screen">
       <header class="header">
-        <h1>My Map</h1>
+        <h1>Squad Map</h1>
         <span class="header-meta" id="gps-status">Locating…</span>
       </header>
       <div class="content map-content">
@@ -22,19 +22,6 @@
           <canvas id="map-canvas" class="map-canvas hidden"></canvas>
           <div id="map-focus" class="map-focus focusable" tabindex="0" data-action="map-focus" aria-label="Map. Tap to pan."></div>
           <div class="map-crosshair" aria-hidden="true">+</div>
-          <div class="nav-banner hidden" id="nav-banner">
-            <div class="nav-banner-main">
-              <div class="nav-banner-icon" id="nav-banner-icon">↑</div>
-              <div class="nav-banner-text">
-                <div class="nav-banner-instruction" id="nav-banner-instruction">—</div>
-                <div class="nav-banner-distance" id="nav-banner-distance">—</div>
-              </div>
-            </div>
-            <div class="nav-banner-actions">
-              <button class="nav-banner-btn focusable" data-action="route-steps">Steps</button>
-              <button class="nav-banner-btn focusable danger" data-action="end-route">End</button>
-            </div>
-          </div>
           <div class="map-attribution" id="map-attribution">© OpenStreetMap</div>
           <img class="brand-logo" src="Gavriel_logo.png" alt="Gavriel" aria-hidden="true">
         </div>
@@ -44,78 +31,12 @@
         <button class="nav-item focusable" data-action="zoom-out">−</button>
         <button class="nav-item focusable" data-action="zoom-in">+</button>
         <button class="nav-item focusable primary" data-action="recenter">Center</button>
-        <button class="nav-item focusable" data-action="type">🔍 Go</button>
-        <button class="nav-item focusable" data-action="details">Info</button>
       </nav>
-    </div>
-
-    <div id="type-screen" class="screen hidden">
-      <header class="header">
-        <button class="back-btn focusable" data-action="back">&#8592;</button>
-        <h1>Destination</h1>
-      </header>
-      <div class="content type-content">
-        <div class="type-query" id="type-query" aria-live="polite"></div>
-        <div class="type-status" id="type-status">Move with the band, tap to pick a letter, then Go</div>
-        <div class="recent-list hidden" id="recent-list"></div>
-        <div class="keyboard" id="keyboard"></div>
-      </div>
-    </div>
-
-    <div id="route-screen" class="screen hidden">
-      <header class="header">
-        <button class="back-btn focusable" data-action="back">&#8592;</button>
-        <h1>Route</h1>
-        <span class="header-meta" id="route-summary">—</span>
-      </header>
-      <div class="content">
-        <div class="card route-dest-card">
-          <div class="card-subtitle">Walking to</div>
-          <div class="card-title" id="route-dest-name">—</div>
-        </div>
-        <div class="steps-list" id="steps-list"></div>
-        <div class="nav-bar route-nav">
-          <button class="nav-item focusable primary" data-action="start-route">Start</button>
-          <button class="nav-item focusable" data-action="type">Change</button>
-        </div>
-      </div>
-    </div>
-
-    <div id="details-screen" class="screen hidden">
-      <header class="header">
-        <button class="back-btn focusable" data-action="back">&#8592;</button>
-        <h1>Location</h1>
-      </header>
-      <div class="content">
-        <div class="card">
-          <div class="card-subtitle">Place</div>
-          <div class="card-title" id="place-name">—</div>
-        </div>
-        <div class="data-grid">
-          <div class="card">
-            <div class="card-subtitle">Latitude</div>
-            <div class="card-value small" id="detail-lat">—</div>
-          </div>
-          <div class="card">
-            <div class="card-subtitle">Longitude</div>
-            <div class="card-value small" id="detail-lon">—</div>
-          </div>
-          <div class="card">
-            <div class="card-subtitle">Accuracy</div>
-            <div class="card-value small" id="detail-accuracy">—</div>
-          </div>
-          <div class="card">
-            <div class="card-subtitle">Heading</div>
-            <div class="card-value small" id="detail-heading">—</div>
-          </div>
-        </div>
-        <button class="nav-item focusable primary refresh-btn" data-action="refresh-location">Refresh</button>
-      </div>
     </div>
 
     <div id="error-screen" class="screen hidden">
       <header class="header">
-        <h1>My Map</h1>
+        <h1>Squad Map</h1>
       </header>
       <div class="content">
         <div class="error-container">

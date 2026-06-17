@@ -1,47 +1,30 @@
-# My Map — Meta Ray-Ban Display
+# Squad Map — Meta Ray-Ban Display
 
-OpenStreetMap location viewer built for Meta Ray-Ban Display glasses.
+A minimal map for Meta Ray-Ban Display glasses: it shows **your location** plus a
+**squad of 5 dummy teammates** wandering nearby.
 
-## Features
+## What it does
 
-- Live GPS location via `navigator.geolocation` (from paired phone)
-- **Vector map rendering** (Organic-Maps-style) via [MapLibre GL JS](https://maplibre.org/)
-  with free, no-key [OpenFreeMap](https://openfreemap.org/) tiles, recolored at
-  runtime into a dark additive-display theme. Crisp at any zoom, smooth pan/zoom.
-- **Automatic WebGL detection with graceful fallback.** If the glasses browser
-  can't run WebGL, the app falls back to a 2D `<canvas>` raster engine using dark
-  CARTO tiles — same UI, routing, and navigation. The active engine is shown in
-  the header (`Vector` vs `2D`) and logged to the console.
-- **Offline maps** via a Service Worker (`sw.js`): the app shell is cached
-  cache-first, and map tiles/glyphs/sprites are cached stale-while-revalidate, so
-  previously-viewed areas keep working with no network.
-- Reverse geocoding via [Nominatim](https://nominatim.org/) (open source)
-- **Walking navigation** — enter a destination and get a planned walking route
-  with live, spoken turn-by-turn directions:
-  - Destination entry (`🔍 Go`) via an **on-screen D-pad keyboard**. Webapps on
-    the Ray-Ban Display get no text input (the Neural Band only emits arrow keys
-    + Enter + Escape), so a focusable letter grid is used to spell out the place.
-  - Destination lookup via Photon geocoder (Nominatim fallback)
-  - Walking route from the FOSSGIS-hosted OSRM `foot` router (free, no key)
-  - Route + destination drawn on the map; an on-map banner shows the next
-    maneuver and distance, auto-advancing as you walk
-  - Step instructions are spoken aloud via `speechSynthesis`
-  - Off-route detection triggers an automatic reroute
-- D-pad navigation: focus the map, press **Enter** to toggle pan mode,
-  then use arrows to pan (green ring = pan mode)
-- Zoom in/out and recenter buttons
+- Loads your live GPS location via `navigator.geolocation` (from the paired phone).
+- Spawns 5 simulated teammates at random spots within ~100 m of you.
+- Each teammate has a random 3-letter name shown above their dot.
+- Teammates drift around with a dumb random walk at ~walking speed (1.4 m/s),
+  staying loosely within range (they steer back if they wander too far).
+- **Vector rendering** via [MapLibre GL JS](https://maplibre.org/) with free, no-key
+  [OpenFreeMap](https://openfreemap.org/) tiles, recolored at runtime into a dark
+  additive-display theme.
+- **Automatic WebGL detection with graceful fallback** to a 2D `<canvas>` raster
+  engine (dark CARTO tiles) if WebGL is unavailable. Active engine shows in the header.
+- **Offline maps** via a Service Worker (`sw.js`): app shell cached cache-first,
+  map tiles cached stale-while-revalidate.
+- If location is denied/unavailable, it falls back to a **demo location** so the map
+  and teammates still appear (useful on desktop).
 
-## Map engine
+## Controls (D-pad)
 
-The map layer is abstracted behind a small interface so the rest of the app
-(routing, search, navigation, markers) is engine-agnostic:
-
-- `createGLMapView()` — MapLibre GL vector tiles (preferred). Requires WebGL.
-- `createCanvasMapView()` — 2D canvas raster fallback (no WebGL needed).
-
-On startup `detectWebGL()` picks the engine; if MapLibre init throws, it falls
-back to canvas automatically. MapLibre and its CSS are vendored under `vendor/`
-so the app loads offline and needs no build step or CDN.
+- Arrows move focus between the on-screen buttons.
+- Focus the map, press **Enter** to toggle pan mode, then arrows pan (green ring).
+- `+` / `−` zoom, **Center** recenters on you.
 
 ## Run locally
 
