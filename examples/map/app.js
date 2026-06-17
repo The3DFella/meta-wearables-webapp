@@ -549,17 +549,35 @@
     if (Map) { Map.refreshUser(); Map.recenter(); }
   }
   function onLocationError(err) {
-    if (state.userLat === null) updateGpsStatus('Locating…');
+    if (state.userLat !== null) return;
+    if (err && err.code === 1) {
+      // Permission denied (or browser blocked it on an insecure origin).
+      updateGpsStatus('Denied');
+      if (errorMessage) {
+        errorMessage.textContent = window.isSecureContext
+          ? 'Location permission denied. Allow location for this site, then tap Try Again.'
+          : 'Location needs HTTPS. Open via https:// (or localhost), then tap Try Again.';
+      }
+      if (state.demoTimer) { clearTimeout(state.demoTimer); state.demoTimer = null; }
+      navigateTo('error-screen');
+    } else {
+      updateGpsStatus('Locating…');
+    }
   }
   function startGeolocation() {
-    if (!navigator.geolocation) { fallbackToDemo(); return; }
+    if (!navigator.geolocation) {
+      updateGpsStatus('No GPS');
+      fallbackToDemo();
+      return;
+    }
     if (state.geoWatchId !== null) navigator.geolocation.clearWatch(state.geoWatchId);
     if (state.demoTimer) clearTimeout(state.demoTimer);
     updateGpsStatus('Locating…');
-    state.geoWatchId = navigator.geolocation.watchPosition(
-      onLocationUpdate, onLocationError,
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 }
-    );
+    var opts = { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 };
+    // One-shot request up front: reliably triggers the permission prompt and a
+    // fast first fix, even if watchPosition is slow to deliver.
+    navigator.geolocation.getCurrentPosition(onLocationUpdate, onLocationError, opts);
+    state.geoWatchId = navigator.geolocation.watchPosition(onLocationUpdate, onLocationError, opts);
     // Give the phone up to 20s to deliver a real fix before showing demo.
     state.demoTimer = setTimeout(fallbackToDemo, 20000);
   }
