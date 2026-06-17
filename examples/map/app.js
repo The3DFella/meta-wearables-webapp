@@ -40,6 +40,7 @@
     mates: [],
     mateCenter: null,
     demo: false,
+    demoTimer: null,
   };
 
   var screens = {};
@@ -503,21 +504,28 @@
   /* ============================================================
    * Geolocation
    * ========================================================== */
-  function ensureMates(lat, lon) {
-    if (!state.mates.length) {
+  function ensureMates(lat, lon, force) {
+    if (force || !state.mates.length) {
+      // Drop any existing GL markers before respawning.
+      state.mates.forEach(function (m) { if (m.marker) m.marker.remove(); });
       spawnMates(lat, lon);
       startMovement();
     }
   }
   function onLocationUpdate(pos) {
     var coords = pos.coords;
+    var wasDemo = state.demo;
     state.demo = false;
+    if (state.demoTimer) { clearTimeout(state.demoTimer); state.demoTimer = null; }
     state.userLat = coords.latitude;
     state.userLon = coords.longitude;
     state.accuracy = coords.accuracy;
     state.heading = coords.heading;
     if (state.followUser) { state.centerLat = coords.latitude; state.centerLon = coords.longitude; }
-    ensureMates(coords.latitude, coords.longitude);
+    // If teammates were placed around a demo location, move the whole squad to
+    // the real position once we get a genuine fix.
+    ensureMates(coords.latitude, coords.longitude, wasDemo);
+    if (wasDemo) { state.followUser = true; if (Map) Map.recenter(); }
     updateCoordsBar();
     updateGpsStatus('Live');
     if (Map) Map.refreshUser();
@@ -525,29 +533,35 @@
       navigateTo('map-screen');
     }
   }
+  function fallbackToDemo() {
+    // Only show a demo location if we never got a genuine fix. Keeps the app
+    // usable on desktop / when permission is blocked, without flashing a wrong
+    // spot when the phone's GPS is just slow to acquire.
+    if (state.userLat !== null) return;
+    state.demo = true;
+    state.userLat = state.centerLat;
+    state.userLon = state.centerLon;
+    state.heading = null;
+    state.followUser = true;
+    ensureMates(state.userLat, state.userLon, true);
+    updateCoordsBar();
+    updateGpsStatus('Demo');
+    if (Map) { Map.refreshUser(); Map.recenter(); }
+  }
   function onLocationError(err) {
-    // Fall back to a demo location so the app still works on desktop / when
-    // permission is unavailable.
-    if (state.userLat === null) {
-      state.demo = true;
-      state.userLat = state.centerLat;
-      state.userLon = state.centerLon;
-      state.heading = null;
-      state.followUser = true;
-      ensureMates(state.userLat, state.userLon);
-      updateCoordsBar();
-      updateGpsStatus('Demo');
-      if (Map) { Map.refreshUser(); Map.recenter(); }
-    }
+    if (state.userLat === null) updateGpsStatus('Locating…');
   }
   function startGeolocation() {
-    if (!navigator.geolocation) { onLocationError({ code: 2 }); return; }
+    if (!navigator.geolocation) { fallbackToDemo(); return; }
     if (state.geoWatchId !== null) navigator.geolocation.clearWatch(state.geoWatchId);
+    if (state.demoTimer) clearTimeout(state.demoTimer);
     updateGpsStatus('Locating…');
     state.geoWatchId = navigator.geolocation.watchPosition(
       onLocationUpdate, onLocationError,
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 27000 }
     );
+    // Give the phone up to 20s to deliver a real fix before showing demo.
+    state.demoTimer = setTimeout(fallbackToDemo, 20000);
   }
 
   /* ============================================================
