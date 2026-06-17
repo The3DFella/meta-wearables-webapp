@@ -42,6 +42,7 @@
     demo: false,
     demoTimer: null,
     lowAccuracyTried: false,
+    lastGeoError: null,
   };
 
   var screens = {};
@@ -494,7 +495,16 @@
    * ========================================================== */
   function formatCoord(value, digits) { return value === null ? '—' : value.toFixed(digits); }
   function updateCoordsBar() {
-    if (state.userLat === null) { coordsBar.textContent = 'Waiting for GPS…'; return; }
+    if (state.userLat === null) {
+      coordsBar.textContent = 'Locating…' + (state.lastGeoError ? ' (' + state.lastGeoError + ')' : '');
+      return;
+    }
+    if (state.demo) {
+      coordsBar.textContent = 'DEMO location' +
+        (state.lastGeoError ? ' · GPS ' + state.lastGeoError : '') +
+        (window.isSecureContext ? '' : ' · insecure origin');
+      return;
+    }
     coordsBar.textContent = formatCoord(state.userLat, 5) + ', ' + formatCoord(state.userLon, 5) +
       ' · ' + state.mates.length + ' teammates nearby';
   }
@@ -550,8 +560,25 @@
     updateCoordsBar();
     updateGpsStatus('Demo');
     if (Map) { Map.refreshUser(); Map.recenter(); }
+    // Keep trying in the background with relaxed, persistent settings so a late
+    // fix (e.g. the phone finally acquiring GPS) still snaps us to the real spot.
+    if (navigator.geolocation) {
+      if (state.geoWatchId !== null) navigator.geolocation.clearWatch(state.geoWatchId);
+      state.geoWatchId = navigator.geolocation.watchPosition(
+        onLocationUpdate, onLocationError,
+        { enableHighAccuracy: false, maximumAge: 30000, timeout: 60000 }
+      );
+    }
   }
   function onLocationError(err) {
+    var names = { 1: 'denied', 2: 'unavailable', 3: 'timeout' };
+    if (err) {
+      state.lastGeoError = 'code ' + err.code +
+        (names[err.code] ? ' ' + names[err.code] : '') +
+        (err.message ? ' — ' + err.message : '');
+      console.warn('[geo] error', state.lastGeoError);
+      updateCoordsBar();
+    }
     if (state.userLat !== null) return;
     // On the glasses, high-accuracy GPS from the phone can time out or be
     // unavailable. Retry once with relaxed options (network/coarse location).

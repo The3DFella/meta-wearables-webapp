@@ -4,7 +4,7 @@
  *   previously-seen areas keep working with no network (Organic-Maps-style
  *   offline maps), while fresh tiles update in the background when online.
  */
-var VERSION = 'v2';
+var VERSION = 'v3';
 var SHELL_CACHE = 'map-shell-' + VERSION;
 var MAP_CACHE = 'map-data-' + VERSION;
 
